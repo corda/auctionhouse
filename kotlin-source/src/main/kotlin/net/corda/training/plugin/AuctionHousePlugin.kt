@@ -1,15 +1,15 @@
 package net.corda.training.plugin
 
 import net.corda.core.messaging.CordaRPCOps
-import net.corda.training.api.IOUApi
+import net.corda.training.api.AuctionHouseApi
 import net.corda.webserver.services.WebServerPluginRegistry
 import java.util.function.Function
 
-class IOUPlugin : WebServerPluginRegistry {
+class AuctionHousePlugin : WebServerPluginRegistry {
     /**
      * A list of classes that expose web APIs.
      */
-    override val webApis: List<Function<CordaRPCOps, out Any>> = listOf(Function(::IOUApi))
+    override val webApis: List<Function<CordaRPCOps, out Any>> = listOf(Function(::AuctionHouseApi))
 
     /**
      * A list of directories in the resources directory that will be served by Jetty under /web.

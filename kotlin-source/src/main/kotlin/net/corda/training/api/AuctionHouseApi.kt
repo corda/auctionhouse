@@ -8,15 +8,19 @@ import net.corda.core.identity.CordaX500Name
 import net.corda.core.internal.toX500Name
 import net.corda.core.messaging.CordaRPCOps
 import net.corda.core.messaging.startFlow
+import net.corda.core.messaging.startTrackedFlow
 import net.corda.core.messaging.vaultQueryBy
 import net.corda.core.node.NodeInfo
 import net.corda.core.utilities.loggerFor
+import net.corda.finance.AMOUNT
+import net.corda.finance.GBP
 import net.corda.finance.contracts.asset.Cash
 import net.corda.finance.workflows.getCashBalances
-import net.corda.training.flow.IOUSettleFlow
-import net.corda.training.flow.IOUTransferFlow
+import net.corda.training.flow.AuctionListFlow
+import net.corda.training.flow.AuctionSettleFlow
+import net.corda.training.flow.AuctionBidFlow
 import net.corda.training.flow.SelfIssueCashFlow
-import net.corda.training.state.IOUState
+import net.corda.training.state.AuctionState
 import org.bouncycastle.asn1.x500.X500Name
 import org.bouncycastle.asn1.x500.style.BCStyle
 import org.slf4j.Logger
@@ -33,19 +37,20 @@ import javax.ws.rs.core.Response
  * We've defined a bunch of endpoints to deal with IOUs, cash and the various operations you can perform with them.
  */
 @Path("iou")
-class IOUApi(val rpcOps: CordaRPCOps) {
+class AuctionHouseApi(val rpcOps: CordaRPCOps) {
     private val me = rpcOps.nodeInfo().legalIdentities.first().name
 
     companion object {
-        private val logger: Logger = loggerFor<IOUApi>()
+        private val logger: Logger = loggerFor<AuctionHouseApi>()
     }
 
-    fun X500Name.toDisplayString() : String  = BCStyle.INSTANCE.toString(this)
+    fun X500Name.toDisplayString(): String = BCStyle.INSTANCE.toString(this)
 
     /** Helpers for filtering the network map cache. */
     private fun isNotary(nodeInfo: NodeInfo) = rpcOps.notaryIdentities().any { nodeInfo.isLegalIdentity(it) }
+
     private fun isMe(nodeInfo: NodeInfo) = nodeInfo.legalIdentities.first().name == me
-    private fun isNetworkMap(nodeInfo : NodeInfo) = nodeInfo.legalIdentities.single().name.organisation == "Network Map Service"
+    private fun isNetworkMap(nodeInfo: NodeInfo) = nodeInfo.legalIdentities.single().name.organisation == "Network Map Service"
 
     /**
      * Returns the node's name.
@@ -72,14 +77,14 @@ class IOUApi(val rpcOps: CordaRPCOps) {
      * Task 1
      * Displays all IOU states that exist in the node's vault.
      * TODO: Return a list of IOUStates on ledger
-     * Hint - Use [rpcOps] to query the vault all unconsumed [IOUState]s
+     * Hint - Use [rpcOps] to query the vault all unconsumed [AuctionState]s
      */
     @GET
     @Path("ious")
     @Produces(MediaType.APPLICATION_JSON)
     fun getIOUs(): List<StateAndRef<ContractState>> {
         // Filter by state type: IOU.
-        return rpcOps.vaultQueryBy<IOUState>().states
+        return rpcOps.vaultQueryBy<AuctionState>().states
     }
 
     /**
@@ -99,38 +104,38 @@ class IOUApi(val rpcOps: CordaRPCOps) {
     @GET
     @Path("cash-balances")
     @Produces(MediaType.APPLICATION_JSON)
-            // Display cash balances.
+    // Display cash balances.
     fun getCashBalances() = rpcOps.getCashBalances()
 
     /**
      * Initiates a flow to agree an IOU between two parties.
      */
-//    @GET
-//    @Path("issue-iou")
-//    fun issueIOU(@QueryParam(value = "amount") amount: Int,
-//                 @QueryParam(value = "currency") currency: String,
-//                 @QueryParam(value = "party") party: String): Response {
-//        // Get party objects for myself and the counterparty.
-//        val me = rpcOps.nodeInfo().legalIdentities.first()
-//        val lender = rpcOps.wellKnownPartyFromX500Name(CordaX500Name.parse(party)) ?: throw IllegalArgumentException("Unknown party name.")
-//        // Create a new IOU state using the parameters given.
-//        try {
-//            val state = IOUState(Amount(amount.toLong() * 100, Currency.getInstance(currency)), lender, me)
-//            // Start the IOUIssueFlow. We block and waits for the flow to return.
-//            val result = rpcOps.startTrackedFlow(::IOUIssueFlow, state).returnValue.get()
-//            // Return the response.
-//            return Response
-//                    .status(Response.Status.CREATED)
-//                    .entity("Transaction id ${result.id} committed to ledger.\n${result.tx.outputs.single()}")
-//                    .build()
-//            // For the purposes of this demo app, we do not differentiate by exception type.
-//        } catch (e: Exception) {
-//            return Response
-//                    .status(Response.Status.BAD_REQUEST)
-//                    .entity(e.message)
-//                    .build()
-//        }
-//    }
+    @GET
+    @Path("issue-iou")
+    fun issueIOU(@QueryParam(value = "amount") amount: Int,
+                 @QueryParam(value = "currency") currency: String,
+                 @QueryParam(value = "party") party: String): Response {
+        // Get party objects for myself and the counterparty.
+        val me = rpcOps.nodeInfo().legalIdentities.first()
+        val lender = rpcOps.wellKnownPartyFromX500Name(CordaX500Name.parse(party))
+                ?: throw IllegalArgumentException("Unknown party name.")
+        // Create a new IOU state using the parameters given.
+        try {
+            // Start the AuctionListFlow. We block and waits for the flow to return.
+            val result = rpcOps.startTrackedFlow(::AuctionListFlow, Amount(amount.toLong() * 100, Currency.getInstance(currency)), lender, me).returnValue.get()
+            // Return the response.
+            return Response
+                    .status(Response.Status.CREATED)
+                    .entity("Transaction id ${result.id} committed to ledger.\n${result.tx.outputs.single()}")
+                    .build()
+            // For the purposes of this demo app, we do not differentiate by exception type.
+        } catch (e: Exception) {
+            return Response
+                    .status(Response.Status.BAD_REQUEST)
+                    .entity(e.message)
+                    .build()
+        }
+    }
 
     /**
      * Transfers an IOU specified by [linearId] to a new party.
@@ -140,9 +145,11 @@ class IOUApi(val rpcOps: CordaRPCOps) {
     fun transferIOU(@QueryParam(value = "id") id: String,
                     @QueryParam(value = "party") party: String): Response {
         val linearId = UniqueIdentifier.fromString(id)
-        val newLender = rpcOps.wellKnownPartyFromX500Name(CordaX500Name.parse(party)) ?: throw IllegalArgumentException("Unknown party name.")
+        val newLender = rpcOps.wellKnownPartyFromX500Name(CordaX500Name.parse(party))
+                ?: throw IllegalArgumentException("Unknown party name.")
+        val amount = AMOUNT(10, GBP)
         try {
-            rpcOps.startFlow(::IOUTransferFlow, linearId, newLender).returnValue.get()
+            rpcOps.startFlow(::AuctionBidFlow, linearId, newLender, amount).returnValue.get()
             return Response.status(Response.Status.CREATED).entity("IOU $id transferred to $party.").build()
 
         } catch (e: Exception) {
@@ -167,7 +174,7 @@ class IOUApi(val rpcOps: CordaRPCOps) {
         val settleAmount = Amount(amount.toLong() * 100, Currency.getInstance(currency))
 
         try {
-            rpcOps.startFlow(::IOUSettleFlow, linearId, settleAmount).returnValue.get()
+            rpcOps.startFlow(::AuctionSettleFlow, linearId, settleAmount).returnValue.get()
             return Response.status(Response.Status.CREATED).entity("$amount $currency paid off on IOU id $id.").build()
 
         } catch (e: Exception) {
