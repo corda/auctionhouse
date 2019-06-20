@@ -1,10 +1,11 @@
 package net.corda.auctionhouse.contract
 
 import net.corda.auctionhouse.state.AuctionItemState
+import net.corda.auctionhouse.state.AuctionState
 import net.corda.core.contracts.*
+import net.corda.core.contracts.Requirements.using
 import net.corda.core.transactions.LedgerTransaction
 import java.security.PublicKey
-import net.corda.auctionhouse.contract.AuctionContract.Commands as Commands
 
 class AuctionItemContract : Contract {
     companion object {
@@ -31,36 +32,54 @@ class AuctionItemContract : Contract {
             }
         }
 
-        class Transfer : TypeOnlyCommandData(), Commands {
+        class List : TypeOnlyCommandData(), Commands {
             override fun verifyCommand(tx: LedgerTransaction, signers: Set<PublicKey>) {
                 requireThat {
-                    "An Transfer should only consume one input state." using (1 == tx.inputStates.size)
-                    "An Transfer should only create one output state." using (1 == tx.outputStates.size)
-                    "Input state must be an AuctionItemState" using (tx.inputStates.single() is AuctionItemState)
-                    "Output state must be an AuctionItemState" using (tx.outputStates.single() is AuctionItemState)
-                    val inputState = tx.inputStates.single() as AuctionItemState
-                    val outputState = tx.outputStates.single() as AuctionItemState
-                    "Only the owner may change." using (inputState == outputState.copy(owner = inputState.owner))
-                    "The owner property must change" using (outputState.owner != inputState.owner)
-                    "The previous and new owner only must sign a transfer transaction" using (signers == listOfNotNull(outputState.owner.owningKey, inputState.owner.owningKey).toSet())
+                    "An List transaction should only consume one input state." using (1 == tx.inputStates.size)
+                    "An List should create two output states." using (2 == tx.outputStates.size)
+                    "There are no AuctionState inputs" using (tx.inputsOfType(AuctionState::class.java).none())
+                    "There is one AuctionItemState input" using (tx.inputsOfType(AuctionItemState::class.java).size == 1)
+                    "There is one AuctionItemState output" using (tx.outputsOfType(AuctionItemState::class.java).size == 1)
+                    val auctionItemStateOut = tx.outputsOfType(AuctionItemState::class.java).single()
+                    val auctionItemStateIn = tx.inputsOfType(AuctionItemState::class.java).single()
+                    "The 'listed' property must be false in the input state" using (!auctionItemStateIn.listed)
+                    "The 'listed' property must be true in the output state" using (auctionItemStateOut.listed)
+                    "Only the 'listed' property can change" using (auctionItemStateOut.copy(listed = false) == auctionItemStateIn)
+                    "Only the owner needs to sign the transaction" using (signers == setOf(auctionItemStateIn.owner.owningKey))
                 }
             }
         }
 
-        class List : TypeOnlyCommandData(), Commands {
+        class Transfer : TypeOnlyCommandData(), Commands {
             override fun verifyCommand(tx: LedgerTransaction, signers: Set<PublicKey>) {
                 requireThat {
-                    //"An List should only consume one input state." using (1 == tx.inputStates.size)
-                    //"An List should only create one output state." using (1 == tx.outputStates.size)
-                    //"Input state must be an AuctionItemState" using (tx.inputStates.single() is AuctionItemState)
-                    //"Output state must be an AuctionItemState" using (tx.outputStates.single() is AuctionItemState)
-                    //val inputState = tx.inputStates.single() as AuctionItemState
-                    //val outputState = tx.outputStates.single() as AuctionItemState
-                    //"Only the owner may change." using (inputState == outputState.copy(isListed = inputState.isListed))
-                    //"The isListed property must be false in the input state" using (!inputState.isListed)
-                    //"The isListed property must be true in the output state" using (outputState.isListed)
-                    //"Only the owner needs to sign the transaction" using (signers == setOf(inputState.owner.owningKey))
+                    "There must be only one AuctionItemState input" using (tx.inputsOfType(AuctionItemState::class.java).size == 1)
+                    "There must be only one AuctionState input" using (tx.inputsOfType(AuctionState::class.java).size == 1)
+                    "There must be only one AuctionItemState output" using (tx.outputsOfType(AuctionItemState::class.java).size == 1)
+                    "There must not be any AuctionState outputs" using tx.outputsOfType(AuctionState::class.java).none()
+                    val inputItem = tx.inputsOfType(AuctionItemState::class.java).single()
+                    val outputItem = tx.outputsOfType(AuctionItemState::class.java).single()
+                    "The 'owner' and 'listed' properties can change." using (inputItem == outputItem.copy(owner = inputItem.owner, listed = inputItem.listed))
+                    "The owner property must change" using (outputItem.owner != inputItem.owner)
+                    "The listed property must change" using (outputItem.listed != inputItem.listed)
+                    "The 'listed' property must be false" using (!outputItem.listed)
+                    "The previous and new owner only must sign a transfer transaction" using (signers == setOf(outputItem.owner.owningKey, inputItem.owner.owningKey))
                 }
+            }
+        }
+
+        class Delist : TypeOnlyCommandData(), Commands {
+            override fun verifyCommand(tx: LedgerTransaction, signers: Set<PublicKey>) {
+                "There must be only one AuctionItemState input" using (tx.inputsOfType(AuctionItemState::class.java).size == 1)
+                "There must be only one AuctionState input" using (tx.inputsOfType(AuctionState::class.java).size == 1)
+                "There must be only one AuctionItemState output" using (tx.outputsOfType(AuctionItemState::class.java).size == 1)
+                "There must not be any AuctionState outputs" using tx.outputsOfType(AuctionState::class.java).none()
+                val inputItem = tx.inputsOfType(AuctionItemState::class.java).single()
+                val outputItem = tx.outputsOfType(AuctionItemState::class.java).single()
+                "The 'listed' property can change." using (inputItem == outputItem.copy(listed = inputItem.listed))
+                "The 'listed' property must change" using (outputItem.listed != inputItem.listed)
+                "The 'listed' property must be false" using (!outputItem.listed)
+                "Only the owner must sign a delist transaction" using (signers == setOf(inputItem.owner.owningKey))
             }
         }
     }

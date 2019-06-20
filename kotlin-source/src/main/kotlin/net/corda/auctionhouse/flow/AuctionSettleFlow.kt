@@ -11,64 +11,71 @@ import net.corda.auctionhouse.contract.AuctionItemContract
 import net.corda.auctionhouse.contract.AuctionItemContract.Companion.AUCTION_ITEM_CONTRACT_ID
 import net.corda.auctionhouse.state.AuctionItemState
 import net.corda.auctionhouse.state.AuctionState
+import net.corda.core.node.StatesToRecord
 import net.corda.finance.contracts.asset.PartyAndAmount
 import net.corda.finance.workflows.asset.CashUtils
-import java.lang.IllegalArgumentException
+import java.time.Instant
 
 @InitiatingFlow
 @SchedulableFlow
-class AuctionSettleFlow(val linearId: UniqueIdentifier): FlowLogic<SignedTransaction>() {
+class AuctionSettleFlow(private val stateRef: StateRef) : FlowLogic<String?>() {
     @Suspendable
-    override fun call(): SignedTransaction {
+    override fun call(): String? {
 
-        val auctions = serviceHub.vaultService.queryBy(AuctionState::class.java)
-        val auctionStateAndRef = requireNotNull(auctions.states.find { it.state.data.linearId == linearId })
-        val state = auctionStateAndRef.state.data
-        val builder = TransactionBuilder(notary = serviceHub.networkMapCache.notaryIdentities.first())
+        var message: String? = null
+        val input = serviceHub.toStateAndRef<AuctionState>(stateRef)
+        val state = input.state.data
+
         if (state.bidder != ourIdentity) {
-            throw IllegalArgumentException("Only the winning bidder should initiate this flow")
+            return message
         }
 
-        val token = state.price.token
-        val currency = token.currencyCode
-        val bidderBalance = serviceHub.getCashBalance(token)
-        if (bidderBalance.quantity <= 0) {
-            throw IllegalArgumentException("Bidder has no $currency to settle.")
-        }
-
-        if (bidderBalance < state.price) {
-            throw IllegalArgumentException("Bidder has only ${bidderBalance.toDecimal()} $currency but needs ${state.price.toDecimal()} $currency to settle.")
-        }
-
-        CashUtils.generateSpend(serviceHub, builder, listOf(PartyAndAmount(state.seller, state.price)), ourIdentityAndCert)
-
+        val builder = TransactionBuilder(notary = serviceHub.networkMapCache.notaryIdentities.first())
         val auctionItems = serviceHub.vaultService.queryBy(AuctionItemState::class.java)
         val itemStateAndRef = requireNotNull(auctionItems.states.find { it.state.data.linearId == state.auctionItem })
-        val outputItemState = itemStateAndRef.state.data.transfer(state.bidder)
+        val auctionSettleCmd = Command(AuctionContract.Commands.Settle(), state.participants.map { it.owningKey })
+        val token = state.price.token
+        val bidderBalance = serviceHub.getCashBalance(token)
+        if (bidderBalance.quantity <= 0 || bidderBalance < state.price) {
+            val outputItemState = itemStateAndRef.state.data.delist()
+            builder.addInputState(input)
+                    .addInputState(itemStateAndRef)
+                    .addCommand(auctionSettleCmd)
+                    .addCommand(Command(AuctionItemContract.Commands.Delist(), state.participants.map { it.owningKey }))
+                    .addOutputState(outputItemState, AUCTION_ITEM_CONTRACT_ID)
+                    .setTimeWindow(TimeWindow.fromOnly(Instant.now()))
+            message = "Insufficient balance!"
 
-        builder.withItems(
-                auctionStateAndRef, // input auction
-                itemStateAndRef, // input auction item
-                Command(AuctionContract.Commands.Settle(), state.participants.map { it.owningKey }), // settle command
-                Command(AuctionItemContract.Commands.Transfer(), state.participants.map { it.owningKey }), // transfer command
-                StateAndContract(outputItemState, AUCTION_ITEM_CONTRACT_ID)) // output auction item
+        }
+        else {
+            val outputItemState = itemStateAndRef.state.data.transfer(state.bidder)
+            val auctionItemTransferCmd = Command(AuctionItemContract.Commands.Transfer(), state.participants.map { it.owningKey })
+            builder.addInputState(input)
+                    .addInputState(itemStateAndRef)
+                    .addCommand(auctionSettleCmd)
+                    .addCommand(auctionItemTransferCmd)
+                    .addOutputState(outputItemState, AUCTION_ITEM_CONTRACT_ID)
+                    .setTimeWindow(TimeWindow.fromOnly(Instant.now()))
+
+            CashUtils.generateSpend(serviceHub, builder, listOf(PartyAndAmount(state.seller, state.price)), ourIdentityAndCert)
+            message = "You won a '${itemStateAndRef.state.data.description}' for '${state.price}"
+        }
 
         val session = initiateFlow(state.seller)
         val ptx = serviceHub.signInitialTransaction(builder)
         val stx = subFlow(CollectSignaturesFlow(ptx, listOf(session)))
-        return subFlow(FinalityFlow(stx, session)).also {
+        subFlow(FinalityFlow(stx, session)).also {
             // sends to everyone in the network
             val broadcastToParties =
                     serviceHub.networkMapCache.allNodes.map { node -> node.legalIdentities.first() } - state.participants
             subFlow(BroadcastTransactionFlow(it, broadcastToParties))
         }
+
+        return message
     }
 }
 
-/**
- * This is the flow which signs IOU settlements.
- * The signing is handled by the [SignTransactionFlow].
- */
+
 @InitiatedBy(AuctionSettleFlow::class)
 class AuctionSettleFlowResponder(val flowSession: FlowSession): FlowLogic<Unit>() {
     @Suspendable
@@ -81,6 +88,6 @@ class AuctionSettleFlowResponder(val flowSession: FlowSession): FlowLogic<Unit>(
         }
 
         subFlow(signedTransactionFlow)
-        subFlow(ReceiveFinalityFlow(flowSession))
+        subFlow(ReceiveFinalityFlow(flowSession, statesToRecord = StatesToRecord.ALL_VISIBLE))
     }
 }

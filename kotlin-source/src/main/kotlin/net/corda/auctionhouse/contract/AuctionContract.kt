@@ -7,7 +7,6 @@ import net.corda.finance.contracts.asset.Cash
 import net.corda.finance.contracts.utils.sumCash
 import net.corda.auctionhouse.state.AuctionState
 import java.security.PublicKey
-import net.corda.auctionhouse.contract.AuctionContract.Commands as Commands
 
 class AuctionContract : Contract {
     companion object {
@@ -29,20 +28,19 @@ class AuctionContract : Contract {
                     "One input should be consumed when listing an auction." using (1 == tx.inputStates.size)
                     "The input state type should be AuctionItemState" using (tx.inputStates.single() is AuctionItemState)
                     "Only two output states should be created when listing an auction." using (2 == tx.outputStates.size)
-                    "Output states have different types" using (tx.outputStates[0]::class != tx.outputStates[1]::class)
-                    "Output state must be an AuctionState or AuctionItemState" using ((tx.outputStates[0] is AuctionItemState || tx.outputStates[1] is AuctionItemState)
-                            && (tx.outputStates[0] is AuctionState || tx.outputStates[1] is AuctionState))
-
-                    val auctionState = if (tx.outputStates[0] is AuctionState) tx.outputStates[0] as AuctionState else tx.outputStates[1] as AuctionState
-                    val auctionItemState = if (tx.outputStates[0] is AuctionItemState) tx.outputStates[0] as AuctionItemState else tx.outputStates[1] as AuctionItemState
+                    val auctionState = tx.outputsOfType(AuctionState::class.java).single()
+                    val auctionItemStateOut = tx.outputsOfType(AuctionItemState::class.java).single()
+                    val auctionItemStateIn = tx.inputsOfType(AuctionItemState::class.java).single()
+                    "The input item state must not be listed" using (!auctionItemStateIn.listed)
+                    "The output item state must be listed" using (auctionItemStateOut.listed)
                     "A newly issued auction must have a positive price." using (auctionState.price.quantity > 0)
                     val time = timeWindow?.fromTime
                                         ?: throw IllegalArgumentException("Listings must be timestamped")
                     "The expiry date cannot be in the past" using (time < auctionState.expiry)
                     "Only the seller needs to sign the transaction" using (signers == setOf(auctionState.seller.owningKey))
                     "The auction must have no bidder on creation" using (auctionState.bidder == null)
-
-                     "Only the owner of the auction item can list it in an auction" using (auctionItemState.owner == auctionState.seller)
+                    "Only the 'listed' property of the auction item has changed" using (auctionItemStateOut.copy(listed = false) == auctionItemStateIn)
+                     "Only the owner of the auction item can list it in an auction" using (auctionItemStateIn.owner == auctionState.seller)
                     }
                 }
             }
@@ -74,28 +72,25 @@ class AuctionContract : Contract {
             override fun verifyCommand(tx: LedgerTransaction, signers: Set<PublicKey>) {
                 val timeWindow: TimeWindow? = tx.timeWindow
                 requireThat {
-                    val states = tx.groupStates<AuctionState, UniqueIdentifier> { it.linearId }.single()
-                    "There must be one input state." using (1 == states.inputs.size)
-                    "Input state must be an AuctionState" using (tx.inputStates.single() is AuctionState)
-                    val inputState = tx.inputStates.single() as AuctionState
+                    "There must be only one AuctionItemState input" using (tx.inputsOfType(AuctionItemState::class.java).size == 1)
+                    "There must be only one AuctionState input" using (tx.inputsOfType(AuctionState::class.java).size == 1)
+                    "There must be only one AuctionItemState output" using (tx.outputsOfType(AuctionItemState::class.java).size == 1)
+                    val inputAuction = tx.inputsOfType(AuctionState::class.java).single()
+                    "There must not be any AuctionState outputs" using tx.outputsOfType(AuctionState::class.java).none()
                     val time = timeWindow?.fromTime ?: throw IllegalArgumentException("Settlements must be timestamped")
-                    "Cannot settle an auction before it expires" using (time > inputState.expiry)
-                    if (inputState.bidder != null) {
+                    "Cannot settle an auction before it expires" using (time > inputAuction.expiry)
+                    if (inputAuction.bidder != null) {
                         val cashOutputs = tx.outputsOfType(Cash.State::class.java)
                         "There must be output cash." using cashOutputs.isNotEmpty()
-                        val sellerCashAmount = cashOutputs.filter { it.owner == inputState.seller }
+                        val sellerCashAmount = cashOutputs.filter { it.owner == inputAuction.seller }
                         "There must be output cash paid to the seller." using (sellerCashAmount.isNotEmpty())
                         val settled = sellerCashAmount.sumCash().withoutIssuer()
-                        val total = inputState.price
+                        val total = inputAuction.price
                         "The amount settled must be equal to the price of the auction." using (total.compareTo(settled) == 0)
-                        "There must be no output state as it has been settled." using (states.outputs.isEmpty())
                         "Both seller and bidder together only must sign the auction settlement transaction." using
-                                (signers == listOfNotNull(inputState.seller.owningKey,
-                                        inputState.bidder?.owningKey).toSet())
+                                (signers == listOf(inputAuction.seller.owningKey, inputAuction.bidder.owningKey).toSet())
                     } else {
-                        "There must be no output states" using tx.outputStates.isEmpty()
-                        "Only the seller must sign the auction settlement transaction." using
-                                (signers == setOf(inputState.seller.owningKey))
+                        "Only the seller must sign the auction settlement transaction." using (signers == setOf(inputAuction.seller.owningKey))
                     }
                 }
             }

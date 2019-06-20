@@ -3,8 +3,6 @@ package net.corda.auctionhouse.flow
 import co.paralleluniverse.fibers.Suspendable
 import net.corda.core.contracts.*
 import net.corda.core.flows.*
-import net.corda.core.identity.Party
-import net.corda.core.internal.requiredContractClassName
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.auctionhouse.contract.AuctionContract
@@ -13,28 +11,17 @@ import net.corda.auctionhouse.contract.AuctionItemContract
 import net.corda.auctionhouse.contract.AuctionItemContract.Companion.AUCTION_ITEM_CONTRACT_ID
 import net.corda.auctionhouse.state.AuctionItemState
 import net.corda.auctionhouse.state.AuctionState
-import net.corda.core.node.services.queryBy
-import net.corda.core.node.services.vault.QueryCriteria
+import net.corda.core.node.StatesToRecord
 import net.corda.core.utilities.ProgressTracker
-import net.corda.finance.contracts.asset.Cash
-import net.corda.nodeapi.exceptions.InternalNodeException.Companion.message
 import java.lang.IllegalArgumentException
-import java.time.Clock
 import java.time.Instant
 import java.util.*
 
-/**
- * This is the flow which handles issuance of new IOUs on the ledger.
- * Gathering the counterparty's signature is handled by the [CollectSignaturesFlow].
- * Notarisation (if required) and commitment to the ledger is handled by the [FinalityFlow].
- * The flow returns the [SignedTransaction] that was committed to the ledger.
- */
 @InitiatingFlow
 @StartableByRPC
 class AuctionListFlow(val itemId: UniqueIdentifier,
                       val price: Amount<Currency>,
-                      val expiry: Instant,
-                      val seller: Party) : FlowLogic<UniqueIdentifier>() {
+                      val expiry: Instant) : FlowLogic<UniqueIdentifier>() {
     @Suspendable
     override fun call(): UniqueIdentifier {
 
@@ -46,7 +33,7 @@ class AuctionListFlow(val itemId: UniqueIdentifier,
             throw IllegalArgumentException("The auction item is already listed")
         }
 
-        val state = AuctionState(itemId, price, seller, null, expiry)
+        val state = AuctionState(itemId, price, ourIdentity, null, expiry)
         val outputItemState = stateAndRef.state.data.list()
         val listAuctionCmd = Command(AuctionContract.Commands.List(), state.participants.map { it.owningKey })
         val listAuctionItemCmd = Command(AuctionItemContract.Commands.List(), state.participants.map { it.owningKey })
@@ -55,7 +42,7 @@ class AuctionListFlow(val itemId: UniqueIdentifier,
                         stateAndRef,
                         listAuctionCmd,     StateAndContract(state,           AUCTION_CONTRACT_ID     ),
                         listAuctionItemCmd, StateAndContract(outputItemState, AUCTION_ITEM_CONTRACT_ID),
-                        TimeWindow.fromOnly(Instant.now(Clock.systemUTC()))
+                        TimeWindow.fromOnly(Instant.now())
                 )
         builder.verify(serviceHub)
         val ptx = serviceHub.signInitialTransaction(builder)
@@ -73,10 +60,6 @@ class AuctionListFlow(val itemId: UniqueIdentifier,
     }
 }
 
-/**
- * This is the flow which signs IOU issuances.
- * The signing is handled by the [SignTransactionFlow].
- */
 @InitiatedBy(AuctionListFlow::class)
 class AuctionListFlowResponder(val flowSession: FlowSession) : FlowLogic<Unit>() {
     @Suspendable
@@ -88,6 +71,6 @@ class AuctionListFlowResponder(val flowSession: FlowSession) : FlowLogic<Unit>()
             }
         }
         subFlow(signedTransactionFlow)
-        subFlow(ReceiveFinalityFlow(flowSession))
+        subFlow(ReceiveFinalityFlow(flowSession, statesToRecord = StatesToRecord.ALL_VISIBLE))
     }
 }

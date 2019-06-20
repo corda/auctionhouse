@@ -119,17 +119,16 @@ class AuctionHouseApi(val rpcOps: CordaRPCOps) {
                  @QueryParam(value = "expiry") expiry: String,
                  @QueryParam(value = "id") id: String): Response {
 
-        val me = rpcOps.nodeInfo().legalIdentities.first()
         val linearId = UniqueIdentifier.fromString(id)
         // Create a new Auction state using the parameters given.
         try {
             // Start the AuctionListFlow. We block and waits for the flow to return.
             val result = rpcOps.startFlow(::AuctionListFlow, linearId,
-                    Amount(amount.toLong() * 100, Currency.getInstance(currency)), Instant.parse(expiry), me).returnValue.get()
+                    Amount(amount.toLong() * 100, Currency.getInstance(currency)), Instant.parse(expiry)).returnValue.get()
             // Return the response.
             return Response
                     .status(Response.Status.CREATED)
-                    .entity("Transaction id ${result.id} committed to ledger.\n${result.tx.outputs.single()}")
+                    .entity("Transaction id ${result.id} committed to ledger.")
                     .build()
             // For the purposes of this demo app, we do not differentiate by exception type.
         } catch (e: Exception) {
@@ -152,7 +151,7 @@ class AuctionHouseApi(val rpcOps: CordaRPCOps) {
                 ?: throw IllegalArgumentException("Unknown party name.")
         val amount = AMOUNT(10, GBP)
         try {
-            rpcOps.startFlow(::AuctionBidFlow, linearId, newLender, amount).returnValue.get()
+            rpcOps.startFlow(::AuctionBidFlow, linearId, amount).returnValue.get()
             return Response.status(Response.Status.CREATED).entity("IOU $id transferred to $party.").build()
 
         } catch (e: Exception) {
@@ -162,7 +161,7 @@ class AuctionHouseApi(val rpcOps: CordaRPCOps) {
                     .build()
         }
     }
-
+/*
     /**
      * Settles an IOU. Requires cash in the right currency to be able to settle.
      * Example request:
@@ -185,7 +184,7 @@ class AuctionHouseApi(val rpcOps: CordaRPCOps) {
                     .build()
         }
     }
-
+*/
     /**
      * Helper end-point to issue some cash to ourselves.
      */

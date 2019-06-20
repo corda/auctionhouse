@@ -7,14 +7,7 @@ import net.corda.auctionhouse.flow.AuctionSettleFlow
 import net.corda.core.flows.FlowLogicRefFactory
 import java.time.Instant
 import java.util.*
-import kotlin.math.exp
 
-/**
- * This is where you'll add the definition of your state object. Look at the unit tests in [IOUStateTests] for
- * instructions on how to complete the [AuctionState] class.
- *
- * Remove the "val data: String = "data" property before starting the [AuctionState] tasks.
- */
 @BelongsToContract(AuctionContract::class)
 data class AuctionState(
         val auctionItem: UniqueIdentifier,
@@ -30,8 +23,7 @@ data class AuctionState(
     }
 
     override fun nextScheduledActivity(thisStateRef: StateRef, flowLogicRefFactory: FlowLogicRefFactory): ScheduledActivity? {
-        val flowLogicRef = flowLogicRefFactory.create(AuctionSettleFlow::class.java, linearId)
-        return ScheduledActivity(flowLogicRef, expiry)
+        return ScheduledActivity(flowLogicRefFactory.create(AuctionSettleFlow::class.java, thisStateRef), expiry)
     }
 
 }

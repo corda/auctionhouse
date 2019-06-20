@@ -8,7 +8,7 @@ import net.corda.core.transactions.TransactionBuilder
 import net.corda.auctionhouse.contract.AuctionContract
 import net.corda.auctionhouse.contract.AuctionContract.Companion.AUCTION_CONTRACT_ID
 import net.corda.auctionhouse.state.AuctionState
-import java.time.Clock
+import net.corda.core.node.StatesToRecord
 import java.time.Instant
 import java.util.*
 
@@ -30,12 +30,12 @@ class AuctionBidFlow(val auctionId: UniqueIdentifier, val amount: Amount<Currenc
                     auctionStateAndRef,
                     StateAndContract(state.bid(amount, ourIdentity), AUCTION_CONTRACT_ID),
                     Command(AuctionContract.Commands.Bid(), state.participants.map { it.owningKey } + ourIdentity.owningKey),
-                    TimeWindow.fromOnly(Instant.now(Clock.systemUTC()))
+                    TimeWindow.fromOnly(Instant.now())
                 )
         builder.verify(serviceHub)
 
         val flowSessions = state.participants.map { initiateFlow(it) }
-        val ptx = serviceHub.signInitialTransaction(builder, ourIdentity.owningKey)
+        val ptx = serviceHub.signInitialTransaction(builder)
         val stx = subFlow(CollectSignaturesFlow(ptx, flowSessions))
         return subFlow(FinalityFlow(stx, flowSessions)).also {
             // sends to everyone in the network
@@ -58,6 +58,6 @@ class AuctionBidFlowResponder(val flowSession: FlowSession) : FlowLogic<Unit>() 
         }
 
         subFlow(signedTransactionFlow)
-        subFlow(ReceiveFinalityFlow(flowSession))
+        subFlow(ReceiveFinalityFlow(flowSession, statesToRecord = StatesToRecord.ALL_VISIBLE))
     }
 }

@@ -15,7 +15,9 @@ data class AuctionItemState
 ): LinearState {
     override val participants: List<AbstractParty> get() = listOf(owner)
 
-    fun transfer(newOwner: Party): AuctionItemState { return copy(owner = newOwner) }
+    fun transfer(newOwner: Party): AuctionItemState { return copy(owner = newOwner, listed = false) }
+
+    fun delist(): AuctionItemState { return copy(listed = false) }
 
     fun list(): AuctionItemState { return copy(listed = true) }
 }

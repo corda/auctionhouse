@@ -27,8 +27,8 @@ class AuctionBidFlowTests {
         c = mockNetwork.createNode(MockNodeParameters())
         val startedNodes = arrayListOf(a, b, c)
         // For real nodes this happens automatically, but we have to manually register the flow for tests
-        startedNodes.forEach { it.registerInitiatedFlow(IOUIssueFlowResponder::class.java) }
-        startedNodes.forEach { it.registerInitiatedFlow(IOUTransferFlowResponder::class.java) }
+        startedNodes.forEach { it.registerInitiatedFlow(AuctionListFlowResponder::class.java) }
+        startedNodes.forEach { it.registerInitiatedFlow(AuctionBidFlowResponder::class.java) }
         mockNetwork.runNetwork()
     }
 
