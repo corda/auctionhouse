@@ -1,25 +1,19 @@
 package net.corda.auctionhouse.api
 
+import net.corda.auctionhouse.flow.*
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.ContractState
 import net.corda.core.contracts.StateAndRef
 import net.corda.core.contracts.UniqueIdentifier
-import net.corda.core.identity.CordaX500Name
 import net.corda.core.internal.toX500Name
 import net.corda.core.messaging.CordaRPCOps
 import net.corda.core.messaging.startFlow
-import net.corda.core.messaging.startTrackedFlow
 import net.corda.core.messaging.vaultQueryBy
 import net.corda.core.node.NodeInfo
 import net.corda.core.utilities.loggerFor
-import net.corda.finance.AMOUNT
-import net.corda.finance.GBP
 import net.corda.finance.contracts.asset.Cash
 import net.corda.finance.workflows.getCashBalances
-import net.corda.auctionhouse.flow.AuctionListFlow
-import net.corda.auctionhouse.flow.AuctionSettleFlow
-import net.corda.auctionhouse.flow.AuctionBidFlow
-import net.corda.auctionhouse.flow.SelfIssueCashFlow
+import net.corda.auctionhouse.state.AuctionItemState
 import net.corda.auctionhouse.state.AuctionState
 import org.bouncycastle.asn1.x500.X500Name
 import org.bouncycastle.asn1.x500.style.BCStyle
@@ -32,13 +26,12 @@ import javax.ws.rs.Produces
 import javax.ws.rs.QueryParam
 import javax.ws.rs.core.MediaType
 import javax.ws.rs.core.Response
-import kotlin.math.exp
 
 /**
  * This API is accessible from /api/iou. The endpoint paths specified below are relative to it.
  * We've defined a bunch of endpoints to deal with IOUs, cash and the various operations you can perform with them.
  */
-@Path("iou")
+@Path("auction")
 class AuctionHouseApi(val rpcOps: CordaRPCOps) {
     private val me = rpcOps.nodeInfo().legalIdentities.first().name
 
@@ -75,19 +68,20 @@ class AuctionHouseApi(val rpcOps: CordaRPCOps) {
                 .map { it.legalIdentities.first().name.toX500Name().toDisplayString() })
     }
 
-    /**
-     * Task 1
-     * Displays all IOU states that exist in the node's vault.
-     * TODO: Return a list of IOUStates on ledger
-     * Hint - Use [rpcOps] to query the vault all unconsumed [AuctionState]s
-     */
     @GET
-    @Path("ious")
+    @Path("auctions")
     @Produces(MediaType.APPLICATION_JSON)
-    fun getIOUs(): List<StateAndRef<ContractState>> {
-        // Filter by state type: IOU.
+    fun getAuctions(): List<StateAndRef<ContractState>> {
         return rpcOps.vaultQueryBy<AuctionState>().states
     }
+
+    @GET
+    @Path("items")
+    @Produces(MediaType.APPLICATION_JSON)
+    fun getAuctionItems(): List<StateAndRef<ContractState>> {
+        return rpcOps.vaultQueryBy<AuctionItemState>().states
+    }
+
 
     /**
      * Displays all cash states that exist in the node's vault.
@@ -109,26 +103,17 @@ class AuctionHouseApi(val rpcOps: CordaRPCOps) {
     // Display cash balances.
     fun getCashBalances() = rpcOps.getCashBalances()
 
-    /**
-     * Initiates a flow to agree an IOU between two parties.
-     */
     @GET
-    @Path("issue-iou")
-    fun issueIOU(@QueryParam(value = "amount") amount: Int,
-                 @QueryParam(value = "currency") currency: String,
-                 @QueryParam(value = "expiry") expiry: String,
-                 @QueryParam(value = "id") id: String): Response {
-
-        val linearId = UniqueIdentifier.fromString(id)
+    @Path("self-issue-item")
+    fun issueItem(@QueryParam(value = "description") description: String): Response {
         // Create a new Auction state using the parameters given.
         try {
             // Start the AuctionListFlow. We block and waits for the flow to return.
-            val result = rpcOps.startFlow(::AuctionListFlow, linearId,
-                    Amount(amount.toLong() * 100, Currency.getInstance(currency)), Instant.parse(expiry)).returnValue.get()
+            val result = rpcOps.startFlow(::AuctionItemSelfIssueFlow, description).returnValue.get()
             // Return the response.
             return Response
                     .status(Response.Status.CREATED)
-                    .entity("Transaction id ${result.id} committed to ledger.")
+                    .entity("Auction item id ${result.id} committed to the ledger.")
                     .build()
             // For the purposes of this demo app, we do not differentiate by exception type.
         } catch (e: Exception) {
@@ -139,21 +124,47 @@ class AuctionHouseApi(val rpcOps: CordaRPCOps) {
         }
     }
 
-    /**
-     * Transfers an IOU specified by [linearId] to a new party.
-     */
+
     @GET
-    @Path("transfer-iou")
+    @Path("list")
+    fun listAuction(@QueryParam(value = "item") item: String,
+                 @QueryParam(value = "amount") amount: Int,
+                 @QueryParam(value = "currency") currency: String,
+                 @QueryParam(value = "expiry") expiry: String): Response {
+
+        val linearId = UniqueIdentifier.fromString(item)
+        // Create a new Auction state using the parameters given.
+        try {
+            // Start the AuctionListFlow. We block and waits for the flow to return.
+            val result = rpcOps.startFlow(::AuctionListFlow, linearId,
+                    Amount(amount.toLong() * 100, Currency.getInstance(currency)), Instant.parse(expiry)).returnValue.get()
+            // Return the response.
+            return Response
+                    .status(Response.Status.CREATED)
+                    .entity("Auction id ${result.id} committed to the ledger.")
+                    .build()
+            // For the purposes of this demo app, we do not differentiate by exception type.
+        } catch (e: Exception) {
+            return Response
+                    .status(Response.Status.BAD_REQUEST)
+                    .entity(e.message)
+                    .build()
+        }
+    }
+
+    @GET
+    @Path("bid")
     fun transferIOU(@QueryParam(value = "id") id: String,
-                    @QueryParam(value = "party") party: String): Response {
+                    @QueryParam(value = "amount") amount: Int,
+                    @QueryParam(value = "currency") currency: String): Response {
         val linearId = UniqueIdentifier.fromString(id)
-        val newLender = rpcOps.wellKnownPartyFromX500Name(CordaX500Name.parse(party))
-                ?: throw IllegalArgumentException("Unknown party name.")
-        val amount = AMOUNT(10, GBP)
+        val bidPrice = Amount(amount.toLong() * 100, Currency.getInstance(currency))
         try {
-            rpcOps.startFlow(::AuctionBidFlow, linearId, amount).returnValue.get()
-            return Response.status(Response.Status.CREATED).entity("IOU $id transferred to $party.").build()
-
+            rpcOps.startFlow(::AuctionBidFlow, linearId, bidPrice).returnValue.get()
+            return Response
+                    .status(Response.Status.OK)
+                    .entity("Bid of $bidPrice on auction $id committed to the ledger.")
+                    .build()
         } catch (e: Exception) {
             return Response
                     .status(Response.Status.BAD_REQUEST)
@@ -161,30 +172,7 @@ class AuctionHouseApi(val rpcOps: CordaRPCOps) {
                     .build()
         }
     }
-/*
-    /**
-     * Settles an IOU. Requires cash in the right currency to be able to settle.
-     * Example request:
-     * curl -X PUT 'http://localhost:10007/api/iou/issue-iou?amount=99&currency=GBP&party=O=ParticipantC,L=New%20York,C=US
-     */
-    @GET
-    @Path("settle-iou")
-    fun settleIOU(@QueryParam(value = "id") id: String,
-                  @QueryParam(value = "amount") amount: Int,
-                  @QueryParam(value = "currency") currency: String): Response {
-        val linearId = UniqueIdentifier.fromString(id)
-        try {
-            rpcOps.startFlow(::AuctionSettleFlow, linearId).returnValue.get()
-            return Response.status(Response.Status.CREATED).entity("$amount $currency paid off on IOU id $id.").build()
 
-        } catch (e: Exception) {
-            return Response
-                    .status(Response.Status.BAD_REQUEST)
-                    .entity(e.message)
-                    .build()
-        }
-    }
-*/
     /**
      * Helper end-point to issue some cash to ourselves.
      */

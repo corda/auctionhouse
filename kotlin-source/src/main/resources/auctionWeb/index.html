@@ -22,10 +22,11 @@ COMING WEEKS, WE'LL WRITE A TUTORIAL ON HOW BEST TO DO THIS.
 <div>
     <p>The the web API to interact with this CorDapp, end-points available:</p>
     <ul>
-        <li>GET /api/auction/ious (list IOUs)</li>
-        <li>GET /api/auction/issue-auction?amount=INTEGER&amp;currency=[GBP/USD]&amp;party=NODE_NAME (issue an IOU to a party with a specified amount and currency)</li>
-        <li>GET /api/auction/transfer-auction?id=LINEAR_ID&amp;party=NODE_NAME (Transfer an IOU specified by linearId to another party</li>
-        <li>GET /api/auction/settle-auction?id=LINEAR_ID&amp;amount=INTEGER&amp;currency=[GBP/USD] (settle an amount of an IOU specified by linearId)</li>
+        <li>GET /api/auction/auctions (list all auction states)</li>
+        <li>GET /api/auction/items (list all auction items)</li>
+        <li>GET /api/auction/self-issue-item?description=DESC</li>
+        <li>GET /api/auction/list?item=LINEAR_ID&amp;amount=INTEGER&amp;currency=[GBP/USD]&amp;expiry=YYY:MM:DDTHH:MM:SSZ</li>
+        <li>GET /api/auction/bid-on-auction?id=LINEAR_ID&amp;amount=INTEGER&amp;currency=[GBP/USD]</li>
         <li>GET /api/auction/cash (list all cash states)</li>
         <li>GET /api/auction/self-issue-cash?amount=INTEGER&amp;currency=[GBP/USD] (self issues an amount of cash in the specified currency)</li>
         <li>GET /api/auction/cash-balances (lists cash balances per currency)</li>

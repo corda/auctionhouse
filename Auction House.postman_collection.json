@@ -1,0 +1,112 @@
+{
+	"info": {
+		"_postman_id": "3d29c9e6-b9ce-48bd-9968-82139c657d37",
+		"name": "Auction House",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "List all auction items",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://{{host}}:{{PartyAPort}}/api/auction/items",
+					"protocol": "http",
+					"host": [
+						"{{host}}"
+					],
+					"port": "{{PartyAPort}}",
+					"path": [
+						"api",
+						"auction",
+						"items"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "List all active auctions",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://{{host}}:{{PartyAPort}}/api/auction/auctions",
+					"protocol": "http",
+					"host": [
+						"{{host}}"
+					],
+					"port": "{{PartyAPort}}",
+					"path": [
+						"api",
+						"auction",
+						"auctions"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Self-Issue an item",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://{{host}}:{{PartyAPort}}/api/auction/self-issue-item?description=<DESCRIPTION>",
+					"protocol": "http",
+					"host": [
+						"{{host}}"
+					],
+					"port": "{{PartyAPort}}",
+					"path": [
+						"api",
+						"auction",
+						"self-issue-item"
+					],
+					"query": [
+						{
+							"key": "description",
+							"value": "<DESCRIPTION>",
+							"description": "The item description"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "List an item in an auction",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": ""
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Bid on an auction",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": ""
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Self-issue cash",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": ""
+				}
+			},
+			"response": []
+		}
+	]
+}
