@@ -107,6 +107,27 @@
 				}
 			},
 			"response": []
+		},
+		{
+			"name": "List all cash states",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://{{host}}:{{PartyBPort}}/api/auction/cash",
+					"protocol": "http",
+					"host": [
+						"{{host}}"
+					],
+					"port": "{{PartyBPort}}",
+					"path": [
+						"api",
+						"auction",
+						"cash"
+					]
+				}
+			},
+			"response": []
 		}
 	]
 }
