@@ -12,7 +12,8 @@ import net.corda.auctionhouse.state.AuctionItemState
 /**
  * This is the flow which handles self-issuing of Auction Items on the ledger.
  * Notarisation (if required) and commitment to the ledger is handled by the [FinalityFlow].
- * The flow returns the [SignedTransaction] that was committed to the ledger.
+ * The flow returns the [UniqueIdentifier] of the auction item that was committed to the ledger.
+ * @param description A descriptive text of what the item is.
  */
 @InitiatingFlow
 @StartableByRPC

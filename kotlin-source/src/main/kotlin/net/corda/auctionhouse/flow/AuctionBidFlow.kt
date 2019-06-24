@@ -9,9 +9,15 @@ import net.corda.auctionhouse.contract.AuctionContract
 import net.corda.auctionhouse.contract.AuctionContract.Companion.AUCTION_CONTRACT_ID
 import net.corda.auctionhouse.state.AuctionState
 import net.corda.core.node.StatesToRecord
-import java.time.Instant
 import java.util.*
 
+/**
+ * Flow that facilitates bidding on a auction. The party that intiates this flow is considered to be
+ * the bidding party. The seller cannot bid on their own auction.
+ * @param auctionId The unique id the auction to bid on.
+ * @param amount The amount (and currency) to bid.
+ * @return The signed bid transaction.
+ */
 @InitiatingFlow
 @StartableByRPC
 class AuctionBidFlow(val auctionId: UniqueIdentifier, val amount: Amount<Currency>) : FlowLogic<SignedTransaction>() {
@@ -22,7 +28,7 @@ class AuctionBidFlow(val auctionId: UniqueIdentifier, val amount: Amount<Currenc
         val state = auctionStateAndRef.state.data
 
         if (ourIdentity == state.seller) {
-            throw IllegalArgumentException("The seller cannot bid on an auction")
+            throw IllegalArgumentException("The seller cannot bid on their own auction")
         }
 
         val builder = TransactionBuilder(notary = auctionStateAndRef.state.notary)
@@ -30,7 +36,7 @@ class AuctionBidFlow(val auctionId: UniqueIdentifier, val amount: Amount<Currenc
                     auctionStateAndRef,
                     StateAndContract(state.bid(amount, ourIdentity), AUCTION_CONTRACT_ID),
                     Command(AuctionContract.Commands.Bid(), state.participants.map { it.owningKey } + ourIdentity.owningKey),
-                    TimeWindow.fromOnly(Instant.now())
+                    TimeWindow.between(serviceHub.clock.instant(), state.expiry)
                 )
         builder.verify(serviceHub)
 
@@ -38,7 +44,6 @@ class AuctionBidFlow(val auctionId: UniqueIdentifier, val amount: Amount<Currenc
         val ptx = serviceHub.signInitialTransaction(builder)
         val stx = subFlow(CollectSignaturesFlow(ptx, flowSessions))
         return subFlow(FinalityFlow(stx, flowSessions)).also {
-            // sends to everyone in the network
             val broadcastToParties =
                     serviceHub.networkMapCache.allNodes.map { node -> node.legalIdentities.first() } - state.participants - ourIdentity
             subFlow(BroadcastTransactionFlow(it, broadcastToParties))
@@ -52,8 +57,11 @@ class AuctionBidFlowResponder(val flowSession: FlowSession) : FlowLogic<Unit>() 
     override fun call() {
         val signedTransactionFlow = object : SignTransactionFlow(flowSession) {
             override fun checkTransaction(stx: SignedTransaction) = requireThat {
+                val input = stx.tx.outputs.single().data
+                "This must be a single AuctionState input" using (input is AuctionState)
                 val output = stx.tx.outputs.single().data
-                "This must be an AuctionState transaction" using (output is AuctionState)
+                "This must be a single AuctionState output" using (output is AuctionState)
+                // TODO: Add more check here. What can be checked here as opposed to in the contract code?
             }
         }
 

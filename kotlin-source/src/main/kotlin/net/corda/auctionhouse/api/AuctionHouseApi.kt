@@ -28,16 +28,13 @@ import javax.ws.rs.core.MediaType
 import javax.ws.rs.core.Response
 
 /**
- * This API is accessible from /api/iou. The endpoint paths specified below are relative to it.
- * We've defined a bunch of endpoints to deal with IOUs, cash and the various operations you can perform with them.
+ * This API is accessible from /api/auction. The endpoint paths specified below are relative to it.
+ * We've defined a bunch of endpoints to deal with Auctions, Auction Items, Cash and the various
+ * operations you can perform with them.
  */
 @Path("auction")
 class AuctionHouseApi(val rpcOps: CordaRPCOps) {
     private val me = rpcOps.nodeInfo().legalIdentities.first().name
-
-    companion object {
-        private val logger: Logger = loggerFor<AuctionHouseApi>()
-    }
 
     fun X500Name.toDisplayString(): String = BCStyle.INSTANCE.toString(this)
 
@@ -68,6 +65,9 @@ class AuctionHouseApi(val rpcOps: CordaRPCOps) {
                 .map { it.legalIdentities.first().name.toX500Name().toDisplayString() })
     }
 
+    /**
+     * Returns all active auctions.
+     */
     @GET
     @Path("auctions")
     @Produces(MediaType.APPLICATION_JSON)
@@ -75,6 +75,11 @@ class AuctionHouseApi(val rpcOps: CordaRPCOps) {
         return rpcOps.vaultQueryBy<AuctionState>().states
     }
 
+    /**
+     * Returns all auction items visible to the node. Auction
+     * items are visible to the owner or have been listed in
+     * a public auction.
+     */
     @GET
     @Path("items")
     @Produces(MediaType.APPLICATION_JSON)
@@ -103,6 +108,9 @@ class AuctionHouseApi(val rpcOps: CordaRPCOps) {
     // Display cash balances.
     fun getCashBalances() = rpcOps.getCashBalances()
 
+    /**
+     * Issues an auction item to the node and commits it to the node's vault.
+     */
     @GET
     @Path("self-issue-item")
     fun issueItem(@QueryParam(value = "description") description: String): Response {
@@ -125,6 +133,13 @@ class AuctionHouseApi(val rpcOps: CordaRPCOps) {
     }
 
 
+    /**
+     * List an item in a public auction.
+     * @param item The item's unique id
+     * @param amount The starting value of the auction
+     * @param currency The currency of the [amount]
+     * @param expiry The expiry date and time of the auction (e.g. 2019-06-25T09:00:00Z)
+     */
     @GET
     @Path("list")
     fun listAuction(@QueryParam(value = "item") item: String,
@@ -135,7 +150,7 @@ class AuctionHouseApi(val rpcOps: CordaRPCOps) {
         val linearId = UniqueIdentifier.fromString(item)
         // Create a new Auction state using the parameters given.
         try {
-            // Start the AuctionListFlow. We block and waits for the flow to return.
+            // Start the AuctionListFlow. We block and wait for the flow to return.
             val result = rpcOps.startFlow(::AuctionListFlow, linearId,
                     Amount(amount.toLong() * 100, Currency.getInstance(currency)), Instant.parse(expiry)).returnValue.get()
             // Return the response.
@@ -152,11 +167,17 @@ class AuctionHouseApi(val rpcOps: CordaRPCOps) {
         }
     }
 
+    /**
+     * Bid on an active auction.
+     * @param id The unique id of the auction.
+     * @param amount The bidding amount.
+     * @param currency The bidding currency.
+     */
     @GET
     @Path("bid")
-    fun transferIOU(@QueryParam(value = "id") id: String,
-                    @QueryParam(value = "amount") amount: Int,
-                    @QueryParam(value = "currency") currency: String): Response {
+    fun bidOnAuction(@QueryParam(value = "id") id: String,
+                     @QueryParam(value = "amount") amount: Int,
+                     @QueryParam(value = "currency") currency: String): Response {
         val linearId = UniqueIdentifier.fromString(id)
         val bidPrice = Amount(amount.toLong() * 100, Currency.getInstance(currency))
         try {

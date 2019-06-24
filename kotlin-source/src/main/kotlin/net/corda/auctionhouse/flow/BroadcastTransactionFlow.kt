@@ -6,6 +6,9 @@ import net.corda.core.identity.Party
 import net.corda.core.node.StatesToRecord
 import net.corda.core.transactions.SignedTransaction
 
+/**
+ * Broadcasts a transaction to a list of Parties.
+ */
 @InitiatingFlow
 class BroadcastTransactionFlow(
         private val stx: SignedTransaction,
@@ -21,6 +24,9 @@ class BroadcastTransactionFlow(
     }
 }
 
+/**
+ * The recipients of the flow record all visible states to their vault.
+ */
 @InitiatedBy(BroadcastTransactionFlow::class)
 class BroadcastTransactionResponder(private val session: FlowSession) : FlowLogic<Unit>() {
 

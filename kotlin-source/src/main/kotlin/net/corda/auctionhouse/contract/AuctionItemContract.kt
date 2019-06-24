@@ -7,6 +7,15 @@ import net.corda.core.contracts.Requirements.using
 import net.corda.core.transactions.LedgerTransaction
 import java.security.PublicKey
 
+/**
+ * Transactions involving one or more AuctionItemState will use this contract to
+ * verify that the transactions are valid.
+ * An Auction Item contract commits that:
+ *   - The auction item is not listed in an active auction
+ *   - On transfer, the ownership of the item changes and it is de-listed
+ *   - If the auction had no bids, the item it de-listed without a change of ownership
+ *
+ */
 class AuctionItemContract : Contract {
     companion object {
         @JvmStatic

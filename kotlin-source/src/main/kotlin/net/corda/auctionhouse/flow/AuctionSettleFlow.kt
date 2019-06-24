@@ -14,8 +14,19 @@ import net.corda.auctionhouse.state.AuctionState
 import net.corda.core.node.StatesToRecord
 import net.corda.finance.contracts.asset.PartyAndAmount
 import net.corda.finance.workflows.asset.CashUtils
-import java.time.Instant
 
+/**
+ * Flow that automatically settles an Auction. Cannot be initiated via RPC. Tt is only scheduled on auction
+ * expiry (see [SchedulableFlow] and [SchedulableState]). When an auction it settled, settlement can succeed or fail.
+ * Either way, this auction state will no longer exist on the ledger.
+ *   - If the auction succeeds, funds will be transferred to the seller, the auction item's ownership will
+ *     be transferred to the highest bidder and de-listed.
+ *   - If the auction fails, no funds are transferred, the item is de-listed and the seller maintains ownership
+ *     of it.
+ * @param stateRef A state reference to the auction state. (see [AuctionState])
+ * @return A message describing the outcome of the auction settlement.
+ * TODO: What happens if contract verification fails?
+ */
 @InitiatingFlow
 @SchedulableFlow
 class AuctionSettleFlow(private val stateRef: StateRef) : FlowLogic<String?>() {
@@ -43,7 +54,7 @@ class AuctionSettleFlow(private val stateRef: StateRef) : FlowLogic<String?>() {
                     .addCommand(auctionSettleCmd)
                     .addCommand(Command(AuctionItemContract.Commands.Delist(), state.participants.map { it.owningKey }))
                     .addOutputState(outputItemState, AUCTION_ITEM_CONTRACT_ID)
-                    .setTimeWindow(TimeWindow.fromOnly(Instant.now()))
+                    .setTimeWindow(TimeWindow.fromOnly(serviceHub.clock.instant()))
             message = "Insufficient balance!"
 
         }
@@ -55,7 +66,7 @@ class AuctionSettleFlow(private val stateRef: StateRef) : FlowLogic<String?>() {
                     .addCommand(auctionSettleCmd)
                     .addCommand(auctionItemTransferCmd)
                     .addOutputState(outputItemState, AUCTION_ITEM_CONTRACT_ID)
-                    .setTimeWindow(TimeWindow.fromOnly(Instant.now()))
+                    .setTimeWindow(TimeWindow.fromOnly(serviceHub.clock.instant()))
 
             CashUtils.generateSpend(serviceHub, builder, listOf(PartyAndAmount(state.seller, state.price)), ourIdentityAndCert)
             message = "You won a '${itemStateAndRef.state.data.description}' for '${state.price}"
@@ -65,7 +76,6 @@ class AuctionSettleFlow(private val stateRef: StateRef) : FlowLogic<String?>() {
         val ptx = serviceHub.signInitialTransaction(builder)
         val stx = subFlow(CollectSignaturesFlow(ptx, listOf(session)))
         subFlow(FinalityFlow(stx, session)).also {
-            // sends to everyone in the network
             val broadcastToParties =
                     serviceHub.networkMapCache.allNodes.map { node -> node.legalIdentities.first() } - state.participants
             subFlow(BroadcastTransactionFlow(it, broadcastToParties))
@@ -82,8 +92,7 @@ class AuctionSettleFlowResponder(val flowSession: FlowSession): FlowLogic<Unit>(
     override fun call() {
         val signedTransactionFlow = object : SignTransactionFlow(flowSession) {
             override fun checkTransaction(stx: SignedTransaction) = requireThat {
-              // val outputStates = stx.tx.outputs.map { it.data::class.java.name }.toList()
-              //"There must be an IOU transaction." using (outputStates.contains(AuctionState::class.java.name))
+                // TODO: Add some checks here
             }
         }
 

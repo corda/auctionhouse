@@ -8,6 +8,25 @@ import net.corda.finance.contracts.utils.sumCash
 import net.corda.auctionhouse.state.AuctionState
 import java.security.PublicKey
 
+/**
+ * Transactions involving one or more AuctionStates will use this contract to
+ * verify that the transactions are valid.
+ *
+ * An Auction contract commits that:
+ *   - Listings, Bids and settlements must be timestamped.
+ *   - The seller owns the item listed in the auction
+ *   - The seller has not listed the item more than once
+ *   - The seller cannot bid on their own auction
+ *   - The bidder must bid higher than the current highest bid
+ *   - The bidder cannot outbid themselves.
+ *   - The bidder cannot bid on an expired auction.
+ *   - The seller cannot list an expired auction.
+ *   - The highest bidder must have enough cash in the correct currency to
+ *     pay the seller in full.
+ *   - The auctioned item's ownership must be transferred to the highest bidder
+ *     upon settlement.
+ *
+ */
 class AuctionContract : Contract {
     companion object {
         @JvmStatic
@@ -16,7 +35,7 @@ class AuctionContract : Contract {
 
     /**
      * Adding more commands will require implementation of the corresponding
-     * verification method. Designed this way to avoid changes to the actual [verify] method.
+     * verification method.
      */
     interface Commands : CommandData {
         fun verifyCommand(tx: LedgerTransaction, signers: Set<PublicKey>)
