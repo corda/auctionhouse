@@ -4,7 +4,6 @@
 
 This repo contains an example CorDapp that implements a decentralised auction house.
 
-
 # Setup
 
 ### Tools 
@@ -26,7 +25,7 @@ again leaving all options as they are.
 
 
 ### Running the tests
-* Kotlin: Select `Kotlin - Unit tests` from the dropdown run configuration menu, and click the green play button.
+* Select `Unit tests` from the dropdown run configuration menu, and click the green play button.
 * Individual tests can be run by clicking the green arrow in the line number column next to each test.
 * When running flow tests you must add the following to your run / debug configuration in the VM options field. This enables us to use
 * Quasar - a library that provides high-performance, lightweight threads.
@@ -37,49 +36,49 @@ again leaving all options as they are.
 ### States
 
 * Source: 
-   * `kotlin-source/src/main/kotlin/net/corda/auctionhouse/state/AuctionState.kt`
-   * `kotlin-source/src/main/kotlin/net/corda/auctionhouse/state/AuctionItemState.kt`
+   * `src/main/kotlin/net/corda/auctionhouse/state/AuctionState.kt`
+   * `src/main/kotlin/net/corda/auctionhouse/state/AuctionItemState.kt`
 
 * Tests:
-   * `kotlin-source/src/test/kotlin/net/corda/auctionhouse/state/AuctionStateTests.kt`
-   * `kotlin-source/src/test/kotlin/net/corda/auctionhouse/state/AuctionItemStateTests.kt`
+   * `src/test/kotlin/net/corda/auctionhouse/state/AuctionStateTests.kt`
+   * `src/test/kotlin/net/corda/auctionhouse/state/AuctionItemStateTests.kt`
 
 ### Contracts
 
 * Source: 
-   * `kotlin-source/src/main/kotlin/net/corda/auctionhouse/contract/AuctionContract.kt`
-   * `kotlin-source/src/main/kotlin/net/corda/auctionhouse/contract/AuctionItemContract.kt`
+   * `src/main/kotlin/net/corda/auctionhouse/contract/AuctionContract.kt`
+   * `src/main/kotlin/net/corda/auctionhouse/contract/AuctionItemContract.kt`
 
 * Tests:
-   * `kotlin-source/src/test/kotlin/net/corda/auctionhouse/contract/AuctionListTests.kt`
-   * `kotlin-source/src/test/kotlin/net/corda/auctionhouse/contract/AuctionBidTests.kt`
-   * `kotlin-source/src/test/kotlin/net/corda/auctionhouse/contract/AuctionSettleTests.kt`
-   * `kotlin-source/src/test/kotlin/net/corda/auctionhouse/contract/AuctionItemIssueTests.kt`
-   * `kotlin-source/src/test/kotlin/net/corda/auctionhouse/contract/AuctionItemListTests.kt`
-   * `kotlin-source/src/test/kotlin/net/corda/auctionhouse/contract/AuctionItemTransferTests.kt`
-   * `kotlin-source/src/test/kotlin/net/corda/auctionhouse/contract/AuctionItemDelistTests.kt`
+   * `src/test/kotlin/net/corda/auctionhouse/contract/AuctionListTests.kt`
+   * `src/test/kotlin/net/corda/auctionhouse/contract/AuctionBidTests.kt`
+   * `src/test/kotlin/net/corda/auctionhouse/contract/AuctionSettleTests.kt`
+   * `src/test/kotlin/net/corda/auctionhouse/contract/AuctionItemIssueTests.kt`
+   * `src/test/kotlin/net/corda/auctionhouse/contract/AuctionItemListTests.kt`
+   * `src/test/kotlin/net/corda/auctionhouse/contract/AuctionItemTransferTests.kt`
+   * `src/test/kotlin/net/corda/auctionhouse/contract/AuctionItemDelistTests.kt`
 
 ### Flows
 
 * Source:
-   * `kotlin-source/src/main/kotlin/net/corda/auctionhouse/flow/AuctionListFlow.kt`
-   * `kotlin-source/src/main/kotlin/net/corda/auctionhouse/flow/AuctionBidFlow.kt`
-   * `kotlin-source/src/main/kotlin/net/corda/auctionhouse/flow/AuctionSettleFlow.kt`
-   * `kotlin-source/src/main/kotlin/net/corda/auctionhouse/flow/AuctionItemSelfIssueFlow.kt`
+   * `src/main/kotlin/net/corda/auctionhouse/flow/AuctionListFlow.kt`
+   * `src/main/kotlin/net/corda/auctionhouse/flow/AuctionBidFlow.kt`
+   * `src/main/kotlin/net/corda/auctionhouse/flow/AuctionSettleFlow.kt`
+   * `src/main/kotlin/net/corda/auctionhouse/flow/AuctionItemSelfIssueFlow.kt`
 
 * Tests:
-   * `kotlin-source/src/test/kotlin/net/corda/auctionhouse/flow/AuctionListFlowTests.kt`
-   * `kotlin-source/src/test/kotlin/net/corda/auctionhouse/flow/AuctionBidFlowTests.kt`
-   * `kotlin-source/src/test/kotlin/net/corda/auctionhouse/flow/AuctionSettleFlowTests.kt`
-   * `kotlin-source/src/test/kotlin/net/corda/auctionhouse/flow/AuctionItemSelfIssueFlowTests.kt`
+   * `src/test/kotlin/net/corda/auctionhouse/flow/AuctionListFlowTests.kt`
+   * `src/test/kotlin/net/corda/auctionhouse/flow/AuctionBidFlowTests.kt`
+   * `src/test/kotlin/net/corda/auctionhouse/flow/AuctionSettleFlowTests.kt`
+   * `src/test/kotlin/net/corda/auctionhouse/flow/AuctionItemSelfIssueFlowTests.kt`
 
 # Running the CorDapp
 
 ### Terminal
-Navigate to the root project folder and run `./gradlew kotlin-source:deployNodes`, followed by `./kotlin-source/build/node/runnodes`
+Navigate to the root project folder and run `./gradlew deployNodes`, followed by `./build/node/runnodes`
 
 ### IntelliJ
-With the project open, select `Kotlin - Node driver` from the dropdown run configuration menu, and click the green play button.
+With the project open, select `Node driver` from the dropdown run configuration menu, and click the green play button.
 
 ### Interacting with the CorDapp
 Once all the three nodes have started up (look for `Webserver started up in XXX sec` in the terminal or IntelliJ ),

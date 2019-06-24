@@ -69,8 +69,8 @@ class AuctionContract : Contract {
                 val timeWindow: TimeWindow? = tx.timeWindow
                 requireThat {
                     val time = timeWindow?.fromTime ?: throw IllegalArgumentException("Bids must be timestamped")
-                    "An Bid transaction should only consume one input state." using (1 == tx.inputStates.size)
-                    "An Bid transaction should only create one output state." using (1 == tx.outputStates.size)
+                    "A Bid transaction should only consume one input state." using (1 == tx.inputStates.size)
+                    "A Bid transaction should only create one output state." using (1 == tx.outputStates.size)
                     "Input state must be an AuctionState" using (tx.inputStates.single() is AuctionState)
                     "Output state must be an AuctionState" using (tx.outputStates.single() is AuctionState)
                     val inputState = tx.inputStates.single() as AuctionState

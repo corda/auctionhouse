@@ -1,5 +1,9 @@
 package net.corda.auctionhouse.contract
 
+import net.corda.auctionhouse.ALICE
+import net.corda.auctionhouse.BOB
+import net.corda.auctionhouse.CHARLIE
+import net.corda.auctionhouse.state.AuctionItemState
 import net.corda.core.contracts.CommandData
 import net.corda.core.contracts.ContractState
 import net.corda.core.identity.AbstractParty
@@ -7,14 +11,14 @@ import net.corda.core.internal.packageName
 import net.corda.finance.schemas.CashSchemaV1
 import net.corda.testing.node.MockServices
 import net.corda.auctionhouse.state.AuctionState
+import net.corda.core.contracts.TimeWindow
+import net.corda.finance.POUNDS
+import net.corda.testing.contracts.DummyContract
+import net.corda.testing.node.ledger
+import org.junit.Test
+import java.time.Instant
 
-/**
- * Practical exercise instructions for Contracts Part 2.
- * The objective here is to write some contract code that verifies a transaction to issue an [AuctionState].
- * As with the [IOUIssueTests] uncomment each unit test and run them one at a time. Use the body of the tests and the
- * task description to determine how to get the tests to pass.
- */
-class IOUTransferTests {
+class AuctionBidTests {
     // A pre-made dummy state we may need for some of the tests.
     class DummyState : ContractState {
         override val participants: List<AbstractParty> get() = listOf()
@@ -22,59 +26,133 @@ class IOUTransferTests {
     // A dummy command.
     class DummyCommand : CommandData
     var ledgerServices = MockServices(listOf("net.corda.auctionhouse", "net.corda.finance.contracts.asset", CashSchemaV1::class.packageName))
-//
-//    /**
-//     * Task 1.
-//     * Now things are going to get interesting!
-//     * We need the [AuctionContract] to not only handle Issues of IOUs but now also Transfers.
-//     * Of course, we'll need to add a new Command and add some additional contract code to handle Transfers.
-//     * TODO: Add a "Transfer" command to the AuctionState and update the verify() function to handle multiple commands.
-//     * Hint:
-//     * - As with the [Issue] command, add the [Transfer] command within the [AuctionContract.Commands].
-//     * - Again, we only care about the existence of the [Transfer] command in a transaction, therefore it should
-//     *   subclass the [TypeOnlyCommandData].
-//     * - You can use the [requireSingleCommand] function to check for the existence of a command which implements a
-//     *   specified interface. Instead of using
-//     *
-//     *       tx.commands.requireSingleCommand<Commands.Issue>()
-//     *
-//     *   You can instead use:
-//     *
-//     *       tx.commands.requireSingleCommand<Commands>()
-//     *
-//     *   To match any command that implements [AuctionContract.Commands]
-//     * - We then need to switch on the type of [Command.value], in Kotlin you can do this using a "when" block
-//     * - For each "when" block case, you can check the type of [Command.value] using the "is" keyword:
-//     *
-//     *       val command = ...
-//     *       when (command.value) {
-//     *           is Commands.X -> doSomething()
-//     *           is Commands.Y -> doSomethingElse()
-//     *       }
-//     * - The [requireSingleCommand] function will handle unrecognised types for you (see first unit test).
-//     */
-//    @Test
-//    fun mustHandleMultipleCommandValues() {
-//        val iou = AuctionState(10.POUNDS, ALICE.party, BOB.party)
-//        ledgerServices.ledger {
-//            transaction {
-//                output(AuctionContract::class.java.name, iou)
-//                command(listOf(ALICE.publicKey, BOB.publicKey), DummyCommand())
-//                this `fails with` "Required net.corda.auctionhouse.contract.AuctionContract.Commands command"
-//            }
-//            transaction {
-//                output(AuctionContract::class.java.name, iou)
-//                command(listOf(ALICE.publicKey, BOB.publicKey), AuctionContract.Commands.Issue())
-//                this.verifies()
-//            }
-//            transaction {
-//                input(AuctionContract::class.java.name, iou)
-//                output(AuctionContract::class.java.name, iou.withNewLender(CHARLIE.party))
-//                command(listOf(ALICE.publicKey, BOB.publicKey, CHARLIE.publicKey), AuctionContract.Commands.Transfer())
-//                this.verifies()
-//            }
-//        }
-//    }
+
+    @Test
+    fun mustHandleBidCommands() {
+
+        val expiry = Instant.now().plusSeconds(3600)
+        val item = AuctionItemState("diamond ring", ALICE.party)
+        val auctionIn = AuctionState(item.linearId, 4000.POUNDS, ALICE.party, null, expiry)
+        val auctionOut = AuctionState(item.linearId, 5000.POUNDS, ALICE.party, BOB.party, expiry, auctionIn.linearId)
+
+        ledgerServices.ledger {
+            transaction {
+                input(AuctionContract::class.java.name, auctionIn)
+                output(AuctionContract::class.java.name, auctionOut)
+                command(listOf(ALICE.publicKey, BOB.publicKey), DummyCommand())
+                timeWindow(TimeWindow.between(Instant.now(), expiry))
+                this `fails with` "Required net.corda.auctionhouse.contract.AuctionContract.Commands command"
+            }
+            transaction {
+                input(AuctionContract::class.java.name, auctionIn)
+                output(AuctionContract::class.java.name, auctionOut)
+                timeWindow(TimeWindow.between(Instant.now(), expiry))
+                command(listOf(ALICE.publicKey, BOB.publicKey), AuctionContract.Commands.Bid())
+                this.verifies()
+            }
+        }
+    }
+
+    @Test
+    fun mustHaveOneInputOneOutputState() {
+        val expiry = Instant.now().plusSeconds(3600)
+        val item = AuctionItemState("diamond ring", ALICE.party)
+        val auctionIn = AuctionState(item.linearId, 4000.POUNDS, ALICE.party, null, expiry)
+        val auctionOut = AuctionState(item.linearId, 5000.POUNDS, ALICE.party, BOB.party, expiry, auctionIn.linearId)
+
+        ledgerServices.ledger {
+            transaction {
+                input(AuctionContract::class.java.name, auctionIn)
+                input(AuctionContract::class.java.name, auctionIn)
+                output(AuctionContract::class.java.name, auctionOut)
+                command(listOf(ALICE.publicKey, BOB.publicKey),  AuctionContract.Commands.Bid())
+                timeWindow(TimeWindow.between(Instant.now(), expiry))
+                this `fails with` "A Bid transaction should only consume one input state."
+            }
+
+            transaction {
+                input(AuctionContract::class.java.name, auctionIn)
+                output(AuctionContract::class.java.name, auctionOut)
+                output(AuctionContract::class.java.name, auctionOut)
+                command(listOf(ALICE.publicKey, BOB.publicKey),  AuctionContract.Commands.Bid())
+                timeWindow(TimeWindow.between(Instant.now(), expiry))
+                this `fails with` "A Bid transaction should only create one output state."
+            }
+        }
+    }
+
+    @Test
+    fun mustBeTimestamped() {
+        val expiry = Instant.now().plusSeconds(3600)
+        val item = AuctionItemState("diamond ring", ALICE.party)
+        val auctionIn = AuctionState(item.linearId, 4000.POUNDS, ALICE.party, null, expiry)
+        val auctionOut = AuctionState(item.linearId, 5000.POUNDS, ALICE.party, BOB.party, expiry, auctionIn.linearId)
+
+        ledgerServices.ledger {
+            transaction {
+                input(AuctionContract::class.java.name, auctionIn)
+                output(AuctionContract::class.java.name, auctionOut)
+                command(listOf(ALICE.publicKey, BOB.publicKey), AuctionContract.Commands.Bid())
+                this `fails with` "Bids must be timestamped"
+            }
+        }
+    }
+
+    @Test
+    fun auctionMustNotBeExpired() {
+        val expiry = Instant.now().minusSeconds(3600)
+        val item = AuctionItemState("diamond ring", ALICE.party)
+        val auctionIn = AuctionState(item.linearId, 4000.POUNDS, ALICE.party, null, expiry)
+        val auctionOut = AuctionState(item.linearId, 5000.POUNDS, ALICE.party, BOB.party, expiry, auctionIn.linearId)
+
+        ledgerServices.ledger {
+            transaction {
+                input(AuctionContract::class.java.name, auctionIn)
+                output(AuctionContract::class.java.name, auctionOut)
+                timeWindow(TimeWindow.fromOnly(Instant.now()))
+                command(listOf(ALICE.publicKey, BOB.publicKey), AuctionContract.Commands.Bid())
+                this `fails with` "The auction is already expired!"
+            }
+        }
+    }
+
+    @Test
+    fun inputStateTypeMustBeAuctionState() {
+        val expiry = Instant.now().minusSeconds(3600)
+        val item = AuctionItemState("diamond ring", ALICE.party)
+        val auctionIn = AuctionState(item.linearId, 4000.POUNDS, ALICE.party, null, expiry)
+        val auctionOut = AuctionState(item.linearId, 5000.POUNDS, ALICE.party, BOB.party, expiry, auctionIn.linearId)
+
+        ledgerServices.ledger {
+            transaction {
+                input(AuctionContract::class.java.name, DummyState())
+                output(AuctionContract::class.java.name, auctionOut)
+                timeWindow(TimeWindow.fromOnly(Instant.now()))
+                command(listOf(ALICE.publicKey, BOB.publicKey), AuctionContract.Commands.Bid())
+                this `fails with` "Input state must be an AuctionState"
+            }
+        }
+    }
+
+
+    @Test
+    fun outputStateTypeMustBeAuctionState() {
+        val expiry = Instant.now().minusSeconds(3600)
+        val item = AuctionItemState("diamond ring", ALICE.party)
+        val auctionIn = AuctionState(item.linearId, 4000.POUNDS, ALICE.party, null, expiry)
+        val auctionOut = AuctionState(item.linearId, 5000.POUNDS, ALICE.party, BOB.party, expiry, auctionIn.linearId)
+
+        ledgerServices.ledger {
+            transaction {
+                input(AuctionContract::class.java.name, auctionIn)
+                output(AuctionContract::class.java.name, DummyState())
+                timeWindow(TimeWindow.fromOnly(Instant.now()))
+                command(listOf(ALICE.publicKey, BOB.publicKey), AuctionContract.Commands.Bid())
+                this `fails with` "Output state must be an AuctionState"
+            }
+        }
+    }
+
 //
 //    /**
 //     * Task 2.
