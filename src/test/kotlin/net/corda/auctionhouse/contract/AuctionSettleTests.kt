@@ -323,4 +323,114 @@ class AuctionSettleTests {
         }
     }
 
+    @Test
+    fun onlyOneAuctionItemState() {
+        val expiry = Instant.now().minusSeconds(3600)
+        val item = AuctionItemState("diamond ring", ALICE.party, listed = true)
+        val auction = AuctionState(item.linearId, 5000.POUNDS, ALICE.party, BOB.party, expiry)
+
+        val inCashState = Cash.State(POUNDS(5000).issuedBy(defaultIssuer), BOB.party)
+        val outCashState = Cash.State(inCashState.amount, ALICE.party)
+
+        ledgerServices.ledger {
+            transaction {
+                input(AUCTION_CONTRACT_ID, auction)
+                input(AUCTION_ITEM_CONTRACT_ID, item)
+                input(AUCTION_ITEM_CONTRACT_ID, item)
+                input(Cash.PROGRAM_ID, inCashState)
+                output(AUCTION_ITEM_CONTRACT_ID, item.transfer(BOB.party))
+                output(Cash.PROGRAM_ID, outCashState)
+                timeWindow(TimeWindow.fromOnly(Instant.now()))
+                command(listOf(ALICE.publicKey, BOB.publicKey), AuctionContract.Commands.Settle())
+                command(listOf(ALICE.publicKey, BOB.publicKey), AuctionItemContract.Commands.Transfer())
+                command(listOf(ALICE.publicKey, BOB.publicKey), Cash.Commands.Move())
+                this `fails with` "There must be only one AuctionItemState input"
+            }
+
+            transaction {
+                input(AUCTION_CONTRACT_ID, auction)
+                input(AUCTION_ITEM_CONTRACT_ID, item)
+                input(Cash.PROGRAM_ID, inCashState)
+                output(AUCTION_ITEM_CONTRACT_ID, item.transfer(BOB.party))
+                output(AUCTION_ITEM_CONTRACT_ID, item.transfer(CHARLIE.party))
+                output(Cash.PROGRAM_ID, outCashState)
+                timeWindow(TimeWindow.fromOnly(Instant.now()))
+                command(listOf(ALICE.publicKey, BOB.publicKey), AuctionContract.Commands.Settle())
+                command(listOf(ALICE.publicKey, BOB.publicKey), AuctionItemContract.Commands.Transfer())
+                command(listOf(ALICE.publicKey, BOB.publicKey), Cash.Commands.Move())
+                this `fails with` "There must be only one AuctionItemState output"
+            }
+        }
+    }
+
+    @Test
+    fun onlyOwnerAndListedPropertiesCanChange() {
+        val expiry = Instant.now().minusSeconds(3600)
+        val item = AuctionItemState("diamond ring", ALICE.party, listed = true)
+        val auction = AuctionState(item.linearId, 5000.POUNDS, ALICE.party, BOB.party, expiry)
+
+        val inCashState = Cash.State(POUNDS(5000).issuedBy(defaultIssuer), BOB.party)
+        val outCashState = Cash.State(inCashState.amount, ALICE.party)
+
+        ledgerServices.ledger {
+            transaction {
+                input(AUCTION_CONTRACT_ID, auction)
+                input(AUCTION_ITEM_CONTRACT_ID, item)
+                input(Cash.PROGRAM_ID, inCashState)
+                output(AUCTION_ITEM_CONTRACT_ID, item.copy(description = "nothing"))
+                output(Cash.PROGRAM_ID, outCashState)
+                timeWindow(TimeWindow.fromOnly(Instant.now()))
+                command(listOf(ALICE.publicKey, BOB.publicKey), AuctionContract.Commands.Settle())
+                command(listOf(ALICE.publicKey, BOB.publicKey), AuctionItemContract.Commands.Transfer())
+                command(listOf(ALICE.publicKey, BOB.publicKey), Cash.Commands.Move())
+                this `fails with` "Only the 'owner' and 'listed' properties can change"
+            }
+
+            transaction {
+                input(AUCTION_CONTRACT_ID, auction)
+                input(AUCTION_ITEM_CONTRACT_ID, item)
+                input(Cash.PROGRAM_ID, inCashState)
+                output(AUCTION_ITEM_CONTRACT_ID, item.delist())
+                output(Cash.PROGRAM_ID, outCashState)
+                timeWindow(TimeWindow.fromOnly(Instant.now()))
+                command(listOf(ALICE.publicKey, BOB.publicKey), AuctionContract.Commands.Settle())
+                command(listOf(ALICE.publicKey, BOB.publicKey), AuctionItemContract.Commands.Transfer())
+                command(listOf(ALICE.publicKey, BOB.publicKey), Cash.Commands.Move())
+                this `fails with` "The 'owner' property must change"
+            }
+
+            transaction {
+                input(AUCTION_CONTRACT_ID, auction)
+                input(AUCTION_ITEM_CONTRACT_ID, item)
+                input(Cash.PROGRAM_ID, inCashState)
+                output(AUCTION_ITEM_CONTRACT_ID, item.copy(owner = BOB.party))
+                output(Cash.PROGRAM_ID, outCashState)
+                timeWindow(TimeWindow.fromOnly(Instant.now()))
+                command(listOf(ALICE.publicKey, BOB.publicKey), AuctionContract.Commands.Settle())
+                command(listOf(ALICE.publicKey, BOB.publicKey), AuctionItemContract.Commands.Transfer())
+                command(listOf(ALICE.publicKey, BOB.publicKey), Cash.Commands.Move())
+                this `fails with` "The 'listed' property must change"
+            }
+        }
+    }
+
+    @Test
+    fun ifNoWinnerOnlyOwnerMustSign() {
+        val expiry = Instant.now().minusSeconds(3600)
+        val item = AuctionItemState("diamond ring", ALICE.party, listed = true)
+        val auction = AuctionState(item.linearId, 5000.POUNDS, ALICE.party, null, expiry)
+
+        ledgerServices.ledger {
+            transaction {
+                input(AUCTION_CONTRACT_ID, auction)
+                input(AUCTION_ITEM_CONTRACT_ID, item)
+                output(AUCTION_ITEM_CONTRACT_ID, item.delist())
+                timeWindow(TimeWindow.fromOnly(Instant.now()))
+                command(ALICE.publicKey, AuctionContract.Commands.Settle())
+                command(listOf(ALICE.publicKey, BOB.publicKey), AuctionItemContract.Commands.Delist())
+                this `fails with` "Only the owner must sign a de-list transaction"
+            }
+        }
+    }
+
 }
