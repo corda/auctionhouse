@@ -80,7 +80,7 @@ class AuctionContract : Contract {
                     "Auction cannot be settled before it expires" using (time > inputAuction.expiry)
                     if (inputAuction.bidder != null) {
                         val cashOutputs = tx.outputsOfType(Cash.State::class.java)
-                        "There must be output cash." using cashOutputs.isNotEmpty()
+                        "There must be output cash" using cashOutputs.isNotEmpty()
                         val sellerCashAmount = cashOutputs.filter { it.owner == inputAuction.seller }
                         "There must be output cash paid to the seller" using (sellerCashAmount.isNotEmpty())
                         val settled = sellerCashAmount.sumCash().withoutIssuer()
@@ -89,6 +89,8 @@ class AuctionContract : Contract {
                         "Both seller and bidder only must sign the auction settlement transaction" using
                                 (signers == setOf(inputAuction.seller.owningKey, inputAuction.bidder.owningKey))
                     } else {
+                        "There should be no cash inputs" using tx.inputsOfType(Cash.State::class.java).isEmpty()
+                        "There should be no cash outputs" using tx.outputsOfType(Cash.State::class.java).isEmpty()
                         "Only the seller must sign the auction settlement transaction" using (signers == setOf(inputAuction.seller.owningKey))
                     }
                 }
