@@ -23,7 +23,6 @@ class AuctionBidTests {
 
     @Test
     fun mustHandleBidCommands() {
-
         val expiry = Instant.now().plusSeconds(3600)
         val item = AuctionItemState("diamond ring", ALICE.party)
         val auctionIn = AuctionState(item.linearId, 4000.POUNDS, ALICE.party, null, expiry)

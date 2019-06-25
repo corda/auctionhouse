@@ -87,7 +87,7 @@ class AuctionContract : Contract {
                         val total = inputAuction.price
                         "The amount settled must be equal to the price of the auction" using (total.compareTo(settled) == 0)
                         "Both seller and bidder only must sign the auction settlement transaction" using
-                                (signers == listOf(inputAuction.seller.owningKey, inputAuction.bidder.owningKey).toSet())
+                                (signers == setOf(inputAuction.seller.owningKey, inputAuction.bidder.owningKey))
                     } else {
                         "Only the seller must sign the auction settlement transaction" using (signers == setOf(inputAuction.seller.owningKey))
                     }
