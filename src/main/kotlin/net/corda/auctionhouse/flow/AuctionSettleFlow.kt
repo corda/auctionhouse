@@ -55,7 +55,7 @@ class AuctionSettleFlow(private val stateRef: StateRef) : FlowLogic<String?>() {
                     .addCommand(Command(AuctionItemContract.Commands.Delist(), state.participants.map { it.owningKey }))
                     .addOutputState(outputItemState, AUCTION_ITEM_CONTRACT_ID)
                     .setTimeWindow(TimeWindow.fromOnly(serviceHub.clock.instant()))
-            message = "Insufficient balance!"
+            message = "Insufficient funds!"
 
         }
         else {
@@ -92,7 +92,7 @@ class AuctionSettleFlowResponder(val flowSession: FlowSession): FlowLogic<Unit>(
     override fun call() {
         val signedTransactionFlow = object : SignTransactionFlow(flowSession) {
             override fun checkTransaction(stx: SignedTransaction) = requireThat {
-                // TODO: Add some checks here
+                // TODO: Add additional checks here
             }
         }
 

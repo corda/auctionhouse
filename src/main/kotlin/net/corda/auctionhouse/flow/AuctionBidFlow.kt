@@ -31,7 +31,7 @@ class AuctionBidFlow(val auctionId: UniqueIdentifier, val amount: Amount<Currenc
             throw IllegalArgumentException("The seller cannot bid on their own auction")
         }
 
-        val builder = TransactionBuilder(notary = auctionStateAndRef.state.notary)
+        val builder = TransactionBuilder(notary = serviceHub.networkMapCache.notaryIdentities.first())
                 .withItems(
                     auctionStateAndRef,
                     StateAndContract(state.bid(amount, ourIdentity), AUCTION_CONTRACT_ID),
@@ -61,7 +61,7 @@ class AuctionBidFlowResponder(val flowSession: FlowSession) : FlowLogic<Unit>() 
                 "This must be a single AuctionState input" using (input is AuctionState)
                 val output = stx.tx.outputs.single().data
                 "This must be a single AuctionState output" using (output is AuctionState)
-                // TODO: Add more check here. What can be checked here as opposed to in the contract code?
+                // TODO: Add additional checks here
             }
         }
 
