@@ -1,6 +1,7 @@
 package net.corda.auctionhouse.contract
 
 import net.corda.auctionhouse.*
+import net.corda.auctionhouse.DummyContract.Companion.DUMMY_CONTRACT_ID
 import net.corda.auctionhouse.contract.AuctionContract.Companion.AUCTION_CONTRACT_ID
 import net.corda.auctionhouse.state.*
 import net.corda.core.contracts.*
@@ -134,7 +135,7 @@ class AuctionBidTests {
 
         ledgerServices.ledger {
             transaction {
-                input(DummyContract.DUMMY_CONTRACT_ID, DummyContract.DummyState())
+                input(DUMMY_CONTRACT_ID, DummyContract.DummyState())
                 output(AUCTION_CONTRACT_ID, auctionOut)
                 timeWindow(TimeWindow.fromOnly(Instant.now()))
                 command(listOf(ALICE.publicKey, BOB.publicKey), AuctionContract.Commands.Bid())
@@ -154,7 +155,7 @@ class AuctionBidTests {
         ledgerServices.ledger {
             transaction {
                 input(AUCTION_CONTRACT_ID, auctionIn)
-                output(DummyContract.DUMMY_CONTRACT_ID, DummyContract.DummyState())
+                output(DUMMY_CONTRACT_ID, DummyContract.DummyState())
                 timeWindow(TimeWindow.fromOnly(Instant.now()))
                 command(listOf(ALICE.publicKey, BOB.publicKey), AuctionContract.Commands.Bid())
                 this `fails with` "The output state must be an AuctionState"

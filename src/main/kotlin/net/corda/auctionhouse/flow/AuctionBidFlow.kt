@@ -9,6 +9,7 @@ import net.corda.auctionhouse.contract.AuctionContract
 import net.corda.auctionhouse.contract.AuctionContract.Companion.AUCTION_CONTRACT_ID
 import net.corda.auctionhouse.state.AuctionState
 import net.corda.core.node.StatesToRecord
+import net.corda.serialization.internal.byteArrayOutput
 import java.util.*
 
 /**
@@ -40,7 +41,8 @@ class AuctionBidFlow(val auctionId: UniqueIdentifier, val amount: Amount<Currenc
                 )
         builder.verify(serviceHub)
 
-        val flowSessions = state.participants.map { initiateFlow(it) }
+        val everyoneElse = state.participants - ourIdentity
+        val flowSessions = everyoneElse.map { initiateFlow(it) }
         val ptx = serviceHub.signInitialTransaction(builder)
         val stx = subFlow(CollectSignaturesFlow(ptx, flowSessions))
         return subFlow(FinalityFlow(stx, flowSessions)).also {

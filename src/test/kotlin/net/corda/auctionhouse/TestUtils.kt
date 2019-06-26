@@ -17,7 +17,7 @@ class DummyContract : Contract {
 
     companion object {
         @JvmStatic
-        val DUMMY_CONTRACT_ID = "net.corda.auctionhouse.contract.DummyContract"
+        val DUMMY_CONTRACT_ID = "net.corda.auctionhouse.DummyContract"
     }
 
     override fun verify(tx: LedgerTransaction) {
@@ -28,7 +28,7 @@ class DummyContract : Contract {
         class DummyCommand : TypeOnlyCommandData(), Commands
     }
 
-    @BelongsToContract(DummyContract::class)
+    @BelongsToContract(net.corda.auctionhouse.DummyContract::class)
     data class DummyState(
             val linearId: UniqueIdentifier = UniqueIdentifier()
     ) : ContractState {

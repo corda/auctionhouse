@@ -67,8 +67,6 @@ class AuctionListFlowTests {
         val future = a.startFlow(flow)
         mockNetwork.runNetwork()
         val stx = future.getOrThrow()
-        // Check the transaction is well formed...
-        // No outputs, one input AuctionState and a command with the right properties.
         assert(stx.tx.inputs.size == 1)
         assert(stx.tx.outputs.size == 2)
         assert(stx.tx.outputs[0].data is AuctionItemState || stx.tx.outputs[1].data is AuctionItemState)
@@ -76,6 +74,7 @@ class AuctionListFlowTests {
         assert(stx.tx.commands.size == 2)
         assert(stx.tx.commands[0].value is AuctionContract.Commands.List || stx.tx.commands[1].value is AuctionContract.Commands.List)
         assert(stx.tx.commands[0].value is AuctionItemContract.Commands.List || stx.tx.commands[1].value is AuctionItemContract.Commands.List)
+        assert(stx.tx.timeWindow != null)
         stx.tx.commands.forEach { assert(it.signers.toSet() == setOf(a.info.singleIdentityAndCert().owningKey))}
         stx.verifyRequiredSignatures()
     }
@@ -93,7 +92,7 @@ class AuctionListFlowTests {
         // Check that an Auction with expiry in the past fails.
         val futureTwo = owner.startFlow(AuctionListFlow(item, 10.POUNDS, Instant.now().minusSeconds(3600)))
         mockNetwork.runNetwork()
-        assertFailsWith<TransactionVerificationException> { futureTwo.getOrThrow() }
+        assertFailsWith<IllegalArgumentException> { futureTwo.getOrThrow() }
         val futureThree = owner.startFlow(AuctionListFlow(item, 10.POUNDS, Instant.now().plusSeconds(3600)))
         mockNetwork.runNetwork()
         futureThree.getOrThrow()

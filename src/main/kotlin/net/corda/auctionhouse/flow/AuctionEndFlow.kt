@@ -44,7 +44,8 @@ class AuctionEndFlow(val auctionId: UniqueIdentifier) : FlowLogic<SignedTransact
                 .addOutputState(outputItemState, AUCTION_ITEM_CONTRACT_ID)
                 .setTimeWindow(TimeWindow.fromOnly(serviceHub.clock.instant()))
 
-        val flowSessions = state.participants.map { initiateFlow(it) }
+        val everyoneElse = state.participants - ourIdentity
+        val flowSessions = everyoneElse.map { initiateFlow(it) }
         val ptx = serviceHub.signInitialTransaction(builder)
         val stx = subFlow(CollectSignaturesFlow(ptx, flowSessions))
         return subFlow(FinalityFlow(stx, flowSessions)).also {

@@ -14,6 +14,7 @@ import net.corda.auctionhouse.state.AuctionState
 import net.corda.core.node.StatesToRecord
 import net.corda.finance.contracts.asset.PartyAndAmount
 import net.corda.finance.workflows.asset.CashUtils
+import java.lang.IllegalArgumentException
 
 /**
  * Flow that automatically settles an Auction. Cannot be initiated via RPC. Tt is only scheduled on auction
@@ -29,16 +30,19 @@ import net.corda.finance.workflows.asset.CashUtils
  */
 @InitiatingFlow
 @SchedulableFlow
-class AuctionSettleFlow(private val stateRef: StateRef) : FlowLogic<String?>() {
+class AuctionSettleFlow(private val stateRef: StateRef) : FlowLogic<SignedTransaction>() {
     @Suspendable
-    override fun call(): String? {
+    override fun call(): SignedTransaction {
 
-        var message: String? = null
         val input = serviceHub.toStateAndRef<AuctionState>(stateRef)
         val state = input.state.data
 
+        if (state.seller == ourIdentity && state.bidder == null) {
+            return subFlow(AuctionEndFlow(state.linearId))
+        }
+
         if (state.bidder != ourIdentity) {
-            return message
+            throw IllegalArgumentException("Only the highest bidder or the seller (in the absence of a bidder) can initiate this flow")
         }
 
         val builder = TransactionBuilder(notary = serviceHub.networkMapCache.notaryIdentities.first())
@@ -48,14 +52,7 @@ class AuctionSettleFlow(private val stateRef: StateRef) : FlowLogic<String?>() {
         val token = state.price.token
         val bidderBalance = serviceHub.getCashBalance(token)
         if (bidderBalance.quantity <= 0 || bidderBalance < state.price) {
-            val outputItemState = itemStateAndRef.state.data.delist()
-            builder.addInputState(input)
-                    .addInputState(itemStateAndRef)
-                    .addCommand(auctionSettleCmd)
-                    .addCommand(Command(AuctionItemContract.Commands.Delist(), state.participants.map { it.owningKey }))
-                    .addOutputState(outputItemState, AUCTION_ITEM_CONTRACT_ID)
-                    .setTimeWindow(TimeWindow.fromOnly(serviceHub.clock.instant()))
-            message = "Insufficient funds!"
+           return subFlow(AuctionEndFlow(state.linearId))
 
         }
         else {
@@ -69,19 +66,17 @@ class AuctionSettleFlow(private val stateRef: StateRef) : FlowLogic<String?>() {
                     .setTimeWindow(TimeWindow.fromOnly(serviceHub.clock.instant()))
 
             CashUtils.generateSpend(serviceHub, builder, listOf(PartyAndAmount(state.seller, state.price)), ourIdentityAndCert)
-            message = "You won a '${itemStateAndRef.state.data.description}' for '${state.price}"
         }
 
         val session = initiateFlow(state.seller)
         val ptx = serviceHub.signInitialTransaction(builder)
         val stx = subFlow(CollectSignaturesFlow(ptx, listOf(session)))
-        subFlow(FinalityFlow(stx, session)).also {
+        return subFlow(FinalityFlow(stx, session)).also {
             val broadcastToParties =
                     serviceHub.networkMapCache.allNodes.map { node -> node.legalIdentities.first() } - state.participants
             subFlow(BroadcastTransactionFlow(it, broadcastToParties))
         }
 
-        return message
     }
 }
 
