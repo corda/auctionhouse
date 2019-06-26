@@ -1,8 +1,23 @@
 package net.corda.auctionhouse.flow
 
+import net.corda.auctionhouse.contract.AuctionContract
+import net.corda.auctionhouse.contract.AuctionItemContract
+import net.corda.auctionhouse.state.AuctionItemState
+import net.corda.auctionhouse.state.AuctionState
+import net.corda.core.contracts.TransactionVerificationException
+import net.corda.core.contracts.UniqueIdentifier
 import net.corda.core.identity.CordaX500Name
+import net.corda.core.transactions.SignedTransaction
+import net.corda.core.utilities.getOrThrow
+import net.corda.finance.POUNDS
+import net.corda.testing.core.singleIdentityAndCert
+import net.corda.testing.internal.chooseIdentityAndCert
 import net.corda.testing.node.*
 import org.junit.*
+import java.lang.IllegalArgumentException
+import java.time.Instant
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 /**
  * Practical exercise instructions Flows part 1.
@@ -33,137 +48,71 @@ class AuctionListFlowTests {
     fun tearDown() {
         mockNetwork.stopNodes()
     }
-//
-//    /**
-//     * Task 1.
-//     * Build out the [AuctionListFlow]!
-//     * TODO: Implement the [AuctionListFlow] flow which builds and returns a partially [SignedTransaction].
-//     * Hint:
-//     * - There's a lot to do to get this unit test to pass!
-//     * - Create a [TransactionBuilder] and pass it a notary reference.
-//     * -- A notary [Party] object can be obtained from [FlowLogic.serviceHub.networkMapCache].
-//     * -- In this training project there is only one notary
-//     * - Create an [AuctionContract.Commands.Issue] inside a new [Command].
-//     * -- The required signers will be the same as the state's participants
-//     * -- Add the [Command] to the transaction builder [addCommand].
-//     * - Use the flow's [AuctionState] parameter as the output state with [addOutputState]
-//     * - Extra credit: use [TransactionBuilder.withItems] to create the transaction instead
-//     * - Sign the transaction and convert it to a [SignedTransaction] using the [serviceHub.signInitialTransaction] method.
-//     * - Return the [SignedTransaction].
-//     */
-//    @Test
-//    fun flowReturnsCorrectlyFormedPartiallySignedTransaction() {
-//        val lender = a.info.chooseIdentityAndCert().party
-//        val borrower = b.info.chooseIdentityAndCert().party
-//        val iou = AuctionState(10.POUNDS, lender, borrower)
-//        val flow = AuctionListFlow(10.POUNDS, lender, borrower)
-//        val future = a.startFlow(flow)
-//        mockNetwork.runNetwork()
-//        // Return the unsigned(!) SignedTransaction object from the AuctionListFlow.
-//        val ptx: SignedTransaction = future.getOrThrow()
-//        // Print the transaction for debugging purposes.
-//        println(ptx.tx)
-//        // Check the transaction is well formed...
-//        // No outputs, one input AuctionState and a command with the right properties.
-//        assert(ptx.tx.inputs.isEmpty())
-//        assert(ptx.tx.outputs.single().data is AuctionState)
-//        val command = ptx.tx.commands.single()
-//        assert(command.value is AuctionContract.Commands.Issue)
-//        assert(command.signers.toSet() == iou.participants.map { it.owningKey }.toSet())
-//        ptx.verifySignaturesExcept(borrower.owningKey,
-//                mockNetwork.defaultNotaryNode.info.legalIdentitiesAndCerts.first().owningKey)
-//    }
-//
-//    /**
-//     * Task 2.
-//     * Now we have a well formed transaction, we need to properly verify it using the [AuctionContract].
-//     * TODO: Amend the [AuctionListFlow] to verify the transaction as well as sign it.
-//     * Hint: You can verify on the builder directly prior to finalizing the transaction. This way
-//     * you can confirm the transaction prior to making it immutable with the signature.
-//     */
-//    @Test
-//    fun flowReturnsVerifiedPartiallySignedTransaction() {
-//        // Check that a zero amount IOU fails.
-//        val lender = a.info.chooseIdentityAndCert().party
-//        val borrower = b.info.chooseIdentityAndCert().party
-//        val futureOne = a.startFlow(AuctionListFlow(0.POUNDS, lender, borrower))
-//        mockNetwork.runNetwork()
-//        assertFailsWith<TransactionVerificationException> { futureOne.getOrThrow() }
-//        // Check that an IOU with the same participants fails.
-//        val futureTwo = a.startFlow(AuctionListFlow(10.POUNDS, lender, lender))
-//        mockNetwork.runNetwork()
-//        assertFailsWith<TransactionVerificationException> { futureTwo.getOrThrow() }
-//        // Check a good IOU passes.
-//        val futureThree = a.startFlow(AuctionListFlow(10.POUNDS, lender, borrower))
-//        mockNetwork.runNetwork()
-//        futureThree.getOrThrow()
-//    }
-//
-//    /**
-//     * IMPORTANT: Review the [CollectSignaturesFlow] before continuing here.
-//     * Task 3.
-//     * Now we need to collect the signature from the [otherParty] using the [CollectSignaturesFlow].
-//     * TODO: Amend the [AuctionListFlow] to collect the [otherParty]'s signature.
-//     * Hint:
-//     * On the Initiator side:
-//     * - Get a set of signers required from the participants who are not the node
-//     * - - [ourIdentity] will give you the identity of the node you are operating as
-//     * - Use [initiateFlow] to get a set of [FlowSession] objects
-//     * - - Using [state.participants] as a base to determine the sessions needed is recommended. [participants] is on
-//     * - - the state interface so it is guaranteed to exist where [lender] and [borrower] are not.
-//     * - - Hint: [ourIdentity] will give you the [Party] that represents the identity of the initiating flow.
-//     * - Use [subFlow] to start the [CollectSignaturesFlow]
-//     * - Pass it a [SignedTransaction] object and [FlowSession] set
-//     * - It will return a [SignedTransaction] with all the required signatures
-//     * - The subflow performs the signature checking and transaction verification for you
-//     *
-//     * On the Responder side:
-//     * - Create a subclass of [SignTransactionFlow]
-//     * - Override [SignTransactionFlow.checkTransaction] to impose any constraints on the transaction
-//     *
-//     * Using this flow you abstract away all the back-and-forth communication required for parties to sign a
-//     * transaction.
-//     */
-//    @Test
-//    fun flowReturnsTransactionSignedByBothParties() {
-//        val lender = a.info.chooseIdentityAndCert().party
-//        val borrower = b.info.chooseIdentityAndCert().party
-//        val flow = AuctionListFlow(10.POUNDS, lender, borrower)
-//        val future = a.startFlow(flow)
-//        mockNetwork.runNetwork()
-//        val stx = future.getOrThrow()
-//        stx.verifyRequiredSignatures()
-//    }
-//
-//    /**
-//     * Task 4.
-//     * Now we need to store the finished [SignedTransaction] in both counter-party vaults.
-//     * TODO: Amend the [AuctionListFlow] by adding a call to [FinalityFlow].
-//     * Hint:
-//     * - As mentioned above, use the [FinalityFlow] to ensure the transaction is recorded in both [Party] vaults.
-//     * - Do not use the [BroadcastTransactionFlow]!
-//     * - The [FinalityFlow] determines if the transaction requires notarisation or not.
-//     * - We don't need the notary's signature as this is an issuance transaction without a timestamp. There are no
-//     *   inputs in the transaction that could be double spent! If we added a timestamp to this transaction then we
-//     *   would require the notary's signature as notaries act as a timestamping authority.
-//     * On the Responder side:
-//     *  - Add a call to [ReceiveFinalityFlow]
-//     */
-//    @Test
-//    fun flowRecordsTheSameTransactionInBothPartyVaults() {
-//        val lender = a.info.chooseIdentityAndCert().party
-//        val borrower = b.info.chooseIdentityAndCert().party
-//        val flow = AuctionListFlow(10.POUNDS, lender, borrower)
-//        val future = a.startFlow(flow)
-//        mockNetwork.runNetwork()
-//        val stx = future.getOrThrow()
-//        println("Signed transaction hash: ${stx.id}")
-//        listOf(a, b).map {
-//            it.services.validatedTransactions.getTransaction(stx.id)
-//        }.forEach {
-//                    val txHash = (it as SignedTransaction).id
-//                    println("$txHash == ${stx.id}")
-//                    assertEquals(stx.id, txHash)
-//                }
-//    }
+
+    /**
+     * Issue an auction item on the ledger. We need to do this before we can list an auction.
+     */
+    private fun issueAuctionItem(node: StartedMockNode): UniqueIdentifier {
+        val flow = AuctionItemSelfIssueFlow("diamond ring")
+        val future = node.startFlow(flow)
+        mockNetwork.runNetwork()
+        return future.getOrThrow()
+    }
+
+    @Test
+    fun flowReturnsCorrectlyFormedSignedTransaction() {
+        val owner = a
+        val item = issueAuctionItem(owner)
+        val flow = AuctionListFlow(item, 10.POUNDS, Instant.now().plusSeconds(3600))
+        val future = a.startFlow(flow)
+        mockNetwork.runNetwork()
+        val stx = future.getOrThrow()
+        // Check the transaction is well formed...
+        // No outputs, one input AuctionState and a command with the right properties.
+        assert(stx.tx.inputs.size == 1)
+        assert(stx.tx.outputs.size == 2)
+        assert(stx.tx.outputs[0].data is AuctionItemState || stx.tx.outputs[1].data is AuctionItemState)
+        assert(stx.tx.outputs[0].data is AuctionState || stx.tx.outputs[1].data is AuctionState)
+        assert(stx.tx.commands.size == 2)
+        assert(stx.tx.commands[0].value is AuctionContract.Commands.List || stx.tx.commands[1].value is AuctionContract.Commands.List)
+        assert(stx.tx.commands[0].value is AuctionItemContract.Commands.List || stx.tx.commands[1].value is AuctionItemContract.Commands.List)
+        stx.tx.commands.forEach { assert(it.signers.toSet() == setOf(a.info.singleIdentityAndCert().owningKey))}
+        stx.verifyRequiredSignatures()
+    }
+
+
+    @Test
+    fun flowReturnsVerifiedSignedTransaction() {
+        val owner = a
+        val someoneElse = b
+        val item = issueAuctionItem(owner)
+        // Check that only the owner of an item can list it in an auction
+        val futureOne = someoneElse.startFlow(AuctionListFlow(item, 10.POUNDS, Instant.now().plusSeconds(3600)))
+        mockNetwork.runNetwork()
+        assertFailsWith<IllegalArgumentException> { futureOne.getOrThrow() }
+        // Check that an Auction with expiry in the past fails.
+        val futureTwo = owner.startFlow(AuctionListFlow(item, 10.POUNDS, Instant.now().minusSeconds(3600)))
+        mockNetwork.runNetwork()
+        assertFailsWith<TransactionVerificationException> { futureTwo.getOrThrow() }
+        val futureThree = owner.startFlow(AuctionListFlow(item, 10.POUNDS, Instant.now().plusSeconds(3600)))
+        mockNetwork.runNetwork()
+        futureThree.getOrThrow()
+    }
+
+    @Test
+    fun flowRecordsTheTransactionInTheSellersVault() {
+        val owner = a
+        val item = issueAuctionItem(owner)
+        val flow = AuctionListFlow(item, 10.POUNDS, Instant.now().plusSeconds(3600))
+        val future = a.startFlow(flow)
+        mockNetwork.runNetwork()
+        val stx = future.getOrThrow()
+        listOf(owner).map {
+            it.services.validatedTransactions.getTransaction(stx.id)
+        }.forEach {
+                    val txHash = (it as SignedTransaction).id
+                    println("$txHash == ${stx.id}")
+                    assertEquals(stx.id, txHash)
+        }
+    }
 }

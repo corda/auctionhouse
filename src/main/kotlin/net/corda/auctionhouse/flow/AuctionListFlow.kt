@@ -27,9 +27,9 @@ import java.util.*
 @StartableByRPC
 class AuctionListFlow(val itemId: UniqueIdentifier,
                       val price: Amount<Currency>,
-                      val expiry: Instant) : FlowLogic<UniqueIdentifier>() {
+                      val expiry: Instant) : FlowLogic<SignedTransaction>() {
     @Suspendable
-    override fun call(): UniqueIdentifier {
+    override fun call(): SignedTransaction {
 
         val auctionItems = serviceHub.vaultService.queryBy(AuctionItemState::class.java)
         val stateAndRef = auctionItems.states.find { it.state.data.linearId == itemId } ?:
@@ -52,12 +52,11 @@ class AuctionListFlow(val itemId: UniqueIdentifier,
                 )
         builder.verify(serviceHub)
         val ptx = serviceHub.signInitialTransaction(builder)
-        subFlow(FinalityFlow(ptx, emptyList())).also {
+        return subFlow(FinalityFlow(ptx, emptyList())).also {
             val broadcastToParties =
                     serviceHub.networkMapCache.allNodes.map { node -> node.legalIdentities.first() } - state.seller
             subFlow(BroadcastTransactionFlow(it, broadcastToParties))
         }
-        return state.linearId
     }
 
     companion object {

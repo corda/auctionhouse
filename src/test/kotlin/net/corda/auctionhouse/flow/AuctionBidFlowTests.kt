@@ -6,6 +6,7 @@ import net.corda.core.contracts.Amount
 import net.corda.core.contracts.TransactionVerificationException
 import net.corda.core.contracts.UniqueIdentifier
 import net.corda.core.identity.CordaX500Name
+import net.corda.core.transactions.SignedTransaction
 import net.corda.core.utilities.getOrThrow
 import net.corda.finance.POUNDS
 import net.corda.testing.node.MockNetwork
@@ -18,6 +19,7 @@ import org.junit.Test
 import java.lang.IllegalArgumentException
 import java.time.Instant
 import java.util.*
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 class AuctionBidFlowTests {
@@ -61,7 +63,8 @@ class AuctionBidFlowTests {
         val flow = AuctionListFlow(auctionItem, amount, expiry)
         val future = node.startFlow(flow)
         mockNetwork.runNetwork()
-        return future.getOrThrow()
+        val stx = future.getOrThrow()
+        return stx.tx.outputsOfType<AuctionState>().single().linearId
     }
 
 
@@ -111,6 +114,24 @@ class AuctionBidFlowTests {
         val future = seller.startFlow(flow)
         mockNetwork.runNetwork()
         assertFailsWith<IllegalArgumentException> { future.getOrThrow() }
+    }
+
+    @Test
+    fun flowRecordedInBothPartiesVaults() {
+        val seller = a
+        val bidder = b
+        val auctionId = listAuction(seller, 1000.POUNDS, Instant.now().plusSeconds(3600))
+        val flow = AuctionBidFlow(auctionId, 1200.POUNDS)
+        val future = bidder.startFlow(flow)
+        mockNetwork.runNetwork()
+        val stx = future.getOrThrow()
+        listOf(seller, bidder).map {
+            it.services.validatedTransactions.getTransaction(stx.id)
+        }.forEach {
+            val txHash = (it as SignedTransaction).id
+            println("$txHash == ${stx.id}")
+            assertEquals(stx.id, txHash)
+        }
     }
 
 }
