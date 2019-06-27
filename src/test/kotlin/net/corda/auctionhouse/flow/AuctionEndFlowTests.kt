@@ -76,5 +76,115 @@ class AuctionEndFlowTests {
         return future.getOrThrow()
     }
 
-    // TODO
+    /**
+     * Issue some on-ledger cash to ourselves, we need to do this before we can Settle an IOU.
+     */
+    private fun issueCash(node: StartedMockNode, amount: Amount<Currency>): Cash.State {
+        val flow = SelfIssueCashFlow(amount)
+        val future = node.startFlow(flow)
+        mockNetwork.runNetwork()
+        return future.getOrThrow()
+    }
+
+    @Test
+    fun flowReturnsCorrectlyFormedSignedTransaction() {
+        val seller = a
+        val bidder = b
+        val auctionId = listAuction(seller, 1.POUNDS, Instant.now().plusSeconds(3600)).tx.outputsOfType<AuctionState>().single().linearId
+        val futureBid = bidder.startFlow(AuctionBidFlow(auctionId, 2.POUNDS))
+        mockNetwork.runNetwork()
+        val stx = futureBid.getOrThrow()
+        assert(stx.tx.outputs.single().data is AuctionState)
+        val flow = AuctionEndFlow(auctionId)
+        val futureEnd = seller.startFlow(flow)
+        mockNetwork.runNetwork()
+        val endResult = futureEnd.getOrThrow()
+        seller.transaction {
+            val ledgerTx = endResult.toLedgerTransaction(bidder.services, false)
+            assert(ledgerTx.inputs.size == 2)
+            assert(ledgerTx.outputs.size == 1)
+            val inputAuctionItem = ledgerTx.inputsOfType(AuctionItemState::class.java).single()
+            assert(ledgerTx.inputsOfType(AuctionState::class.java).size == 1)
+            val outputAuctionItem = ledgerTx.outputsOfType(AuctionItemState::class.java).single()
+            assertEquals(outputAuctionItem, inputAuctionItem.delist())
+            val auctionCommand = ledgerTx.commands.requireSingleCommand<AuctionContract.Commands>()
+            assert(auctionCommand.value == AuctionContract.Commands.End())
+            val auctionItemCommand = ledgerTx.commands.requireSingleCommand<AuctionItemContract.Commands>()
+            assert(auctionItemCommand.value == AuctionItemContract.Commands.Delist())
+            endResult.verifyRequiredSignatures()
+        }
+    }
+
+    @Test
+    fun flowWithoutBidderReturnsCorrectlyFormedSignedTransaction() {
+        val seller = a
+        val auctionId = listAuction(seller, 1.POUNDS, Instant.now().plusSeconds(3600)).tx.outputsOfType<AuctionState>().single().linearId
+        val flow = AuctionEndFlow(auctionId)
+        val futureEnd = seller.startFlow(flow)
+        mockNetwork.runNetwork()
+        val endResult = futureEnd.getOrThrow()
+        seller.transaction {
+            val ledgerTx = endResult.toLedgerTransaction(seller.services, false)
+            assert(ledgerTx.inputs.size == 2)
+            assert(ledgerTx.outputs.size == 1)
+            val inputAuctionItem = ledgerTx.inputsOfType(AuctionItemState::class.java).single()
+            assert(ledgerTx.inputsOfType(AuctionState::class.java).size == 1)
+            val outputAuctionItem = ledgerTx.outputsOfType(AuctionItemState::class.java).single()
+            assertEquals(outputAuctionItem, inputAuctionItem.delist())
+            val auctionCommand = ledgerTx.commands.requireSingleCommand<AuctionContract.Commands>()
+            assert(auctionCommand.value == AuctionContract.Commands.End())
+            val auctionItemCommand = ledgerTx.commands.requireSingleCommand<AuctionItemContract.Commands>()
+            assert(auctionItemCommand.value == AuctionItemContract.Commands.Delist())
+            endResult.verifyRequiredSignatures()
+        }
+    }
+
+    @Test
+    fun endFlowCanOnlyBeRunByTheSeller() {
+        val seller = a
+        val bidder = b
+        val someoneElse = c
+        val auctionId = listAuction(seller, 1.POUNDS, Instant.now().plusSeconds(3600)).tx.outputsOfType<AuctionState>().single().linearId
+        val futureBid = bidder.startFlow(AuctionBidFlow(auctionId, 2.POUNDS))
+        mockNetwork.runNetwork()
+        futureBid.getOrThrow()
+        setOf(bidder, someoneElse).forEach {
+            val flow = AuctionEndFlow(auctionId)
+            val future = it.startFlow(flow)
+            mockNetwork.runNetwork()
+            assertFailsWith<IllegalArgumentException> { future.getOrThrow() }
+        }
+    }
+
+    @Test
+    fun endFlowCanBeRunAfterAuctionExpires() {
+        val seller = a
+        val bidder = b
+        val auctionId = listAuction(seller, 1.POUNDS, Instant.now().plusSeconds(30)).tx.outputsOfType<AuctionState>().single().linearId
+        val futureBid = bidder.startFlow(AuctionBidFlow(auctionId, 2.POUNDS))
+        mockNetwork.runNetwork()
+        val stx = futureBid.getOrThrow()
+        assert(stx.tx.outputs.single().data is AuctionState)
+        val inputAuction = stx.tx.outputsOfType(AuctionState::class.java).single()
+        val wait = inputAuction.expiry.toEpochMilli() - Instant.now().toEpochMilli()
+        Thread.sleep(max(wait, 0L))
+        val flow = AuctionEndFlow(auctionId)
+        val futureEnd = seller.startFlow(flow)
+        mockNetwork.runNetwork()
+        val endResult = futureEnd.getOrThrow()
+        seller.transaction {
+            val ledgerTx = endResult.toLedgerTransaction(bidder.services, false)
+            assert(ledgerTx.inputs.size == 2)
+            assert(ledgerTx.outputs.size == 1)
+            val inputAuctionItem = ledgerTx.inputsOfType(AuctionItemState::class.java).single()
+            assert(ledgerTx.inputsOfType(AuctionState::class.java).size == 1)
+            val outputAuctionItem = ledgerTx.outputsOfType(AuctionItemState::class.java).single()
+            assertEquals(outputAuctionItem, inputAuctionItem.delist())
+            val auctionCommand = ledgerTx.commands.requireSingleCommand<AuctionContract.Commands>()
+            assert(auctionCommand.value == AuctionContract.Commands.End())
+            val auctionItemCommand = ledgerTx.commands.requireSingleCommand<AuctionItemContract.Commands>()
+            assert(auctionItemCommand.value == AuctionItemContract.Commands.Delist())
+            endResult.verifyRequiredSignatures()
+        }
+    }
 }

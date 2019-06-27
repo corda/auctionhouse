@@ -1,6 +1,7 @@
 package net.corda.auctionhouse.contract
 
 import net.corda.auctionhouse.state.AuctionItemState
+import net.corda.auctionhouse.state.AuctionState
 import net.corda.core.contracts.*
 import net.corda.core.contracts.Requirements.using
 import net.corda.core.transactions.LedgerTransaction
@@ -72,10 +73,15 @@ class AuctionItemContract : Contract {
                 "There must be only one AuctionItemState output" using (tx.outputsOfType(AuctionItemState::class.java).size == 1)
                 val inputItem = tx.inputsOfType(AuctionItemState::class.java).single()
                 val outputItem = tx.outputsOfType(AuctionItemState::class.java).single()
+                val inputAuction = tx.inputsOfType(AuctionState::class.java).single()
                 "Only the 'listed' property can change" using (inputItem == outputItem.copy(listed = inputItem.listed))
                 "The 'listed' property must change" using (outputItem.listed != inputItem.listed)
                 "The 'listed' property must be 'false'" using (!outputItem.listed)
-                "Only the owner must sign a de-list transaction" using (signers == setOf(inputItem.owner.owningKey))
+                if (inputAuction.bidder != null) {
+                    "Only the owner and bidder must sign a de-list transaction" using (signers == setOf(inputItem.owner.owningKey, inputAuction.bidder.owningKey))
+                } else {
+                    "Only the owner must sign a de-list transaction" using (signers == setOf(inputItem.owner.owningKey))
+                }
             }
         }
     }
