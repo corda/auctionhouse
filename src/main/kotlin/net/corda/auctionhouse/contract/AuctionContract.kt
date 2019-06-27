@@ -42,6 +42,8 @@ class AuctionContract : Contract {
                     "Only the seller needs to sign the transaction" using (signers == setOf(auctionState.seller.owningKey))
                     "The auction must have no bidder when listed" using (auctionState.bidder == null)
                     "Only the owner of the auction item can list it in an auction" using (auctionItemStateIn.owner == auctionState.seller)
+                    val itemCommand = tx.commandsOfType(AuctionItemContract.Commands::class.java).single()
+                    "Item must be listed" using (itemCommand.value is AuctionItemContract.Commands.List)
                 }
             }
         }
@@ -65,6 +67,7 @@ class AuctionContract : Contract {
                     "The new bid price must be greater than the current bid price" using (outputState.price > inputState.price)
                     "The seller, previous bidder and new bidder only must sign a bid transaction" using (signers == listOfNotNull(outputState.seller.owningKey,
                             requireNotNull(outputState.bidder).owningKey, inputState.bidder?.owningKey).toSet())
+                    "Item must not change" using (tx.commandsOfType(AuctionItemContract.Commands::class.java).none())
                 }
             }
         }
@@ -88,10 +91,14 @@ class AuctionContract : Contract {
                         "The amount settled must be equal to the price of the auction" using (total.compareTo(settled) == 0)
                         "Both seller and bidder only must sign the auction settlement transaction" using
                                 (signers == setOf(inputAuction.seller.owningKey, inputAuction.bidder.owningKey))
+                        val itemCommand = tx.commandsOfType(AuctionItemContract.Commands::class.java).single()
+                        "Item must be transferred" using (itemCommand.value is AuctionItemContract.Commands.Transfer)
                     } else {
                         "There should be no cash inputs" using tx.inputsOfType(Cash.State::class.java).isEmpty()
                         "There should be no cash outputs" using tx.outputsOfType(Cash.State::class.java).isEmpty()
                         "Only the seller must sign the auction settlement transaction" using (signers == setOf(inputAuction.seller.owningKey))
+                        val itemCommand = tx.commandsOfType(AuctionItemContract.Commands::class.java).single()
+                        "Item must be delisted" using (itemCommand.value is AuctionItemContract.Commands.Delist)
                     }
                 }
             }
@@ -105,11 +112,15 @@ class AuctionContract : Contract {
                     val inputAuction = tx.inputsOfType(AuctionState::class.java).single()
                     "There must not be any AuctionState outputs" using tx.outputsOfType(AuctionState::class.java).none()
                     timeWindow?.fromTime ?: throw IllegalArgumentException("Transaction must be timestamped")
+                    "There should be no cash inputs" using tx.inputsOfType(Cash.State::class.java).isEmpty()
+                    "There should be no cash outputs" using tx.outputsOfType(Cash.State::class.java).isEmpty()
+                    val itemCommand = tx.commandsOfType(AuctionItemContract.Commands::class.java).single()
+                    "Item must be delisted" using (itemCommand.value is AuctionItemContract.Commands.Delist)
                     if (inputAuction.bidder != null) {
-                        "Both seller and bidder only must sign the auction settlement transaction" using
+                        "Both seller and bidder only must sign the auction end transaction" using
                                 (signers == listOf(inputAuction.seller.owningKey, inputAuction.bidder.owningKey).toSet())
                     } else {
-                        "Only the seller must sign the auction settlement transaction" using (signers == setOf(inputAuction.seller.owningKey))
+                        "Only the seller must sign the auction end transaction" using (signers == setOf(inputAuction.seller.owningKey))
                     }
                 }
             }
