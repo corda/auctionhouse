@@ -2,7 +2,12 @@
 
 # Auction House CorDapp
 
-This repo contains an example CorDapp that implements a decentralised auction house.
+This repo contains an example CorDapp that implements a decentralised auction house. Nodes can issue auction items
+themselves which they can then list in an auction. All auctions are public and are registered in all node's vaults.
+Nodes other than the seller node can bid on the auction before it expires. When it expires the auction will
+automatically settle. If settlement is not possible due to contract verification failure or another issue then
+the seller has the authority to end the auction in which case the auction item will be de-listed and the auction
+itself will be removed.
 
 # Setup
 
@@ -17,7 +22,7 @@ location.
 ### IntelliJ setup
 * From the main menu, click `open` (not `import`!) then navigate to where you placed this repository.
 * Click `File->Project Structure`, and set the `Project SDK` to be the JDK you downloaded (by clicking `new` and 
-nagivating to where the JDK was installed). Click `Okay`.
+navigating to where the JDK was installed). Click `Okay`.
 * Next, click `import` on the `Import Gradle Project` popup, leaving all options as they are. 
 * If you do not see the popup: Navigate back to `Project Structure->Modules`, clicking the `+ -> Import` button,
 navigate to and select the repository folder, select `Gradle` from the next menu, and finally click `Okay`, 
