@@ -8,6 +8,7 @@ import net.corda.core.transactions.TransactionBuilder
 import net.corda.auctionhouse.contract.AuctionItemContract
 import net.corda.auctionhouse.contract.AuctionItemContract.Companion.AUCTION_ITEM_CONTRACT_ID
 import net.corda.auctionhouse.state.AuctionItemState
+import net.corda.core.utilities.ProgressTracker
 
 /**
  * This is the flow which handles self-issuing of Auction Items on the ledger.
@@ -18,6 +19,7 @@ import net.corda.auctionhouse.state.AuctionItemState
 @InitiatingFlow
 @StartableByRPC
 class AuctionItemSelfIssueFlow(val description: String) : FlowLogic<UniqueIdentifier>() {
+    override val progressTracker = ProgressTracker()
     @Suspendable
     override fun call(): UniqueIdentifier {
         val state = AuctionItemState(description, ourIdentity)

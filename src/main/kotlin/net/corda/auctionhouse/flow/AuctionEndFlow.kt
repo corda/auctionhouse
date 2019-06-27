@@ -11,6 +11,7 @@ import net.corda.auctionhouse.contract.AuctionItemContract.Companion.AUCTION_ITE
 import net.corda.auctionhouse.state.AuctionItemState
 import net.corda.auctionhouse.state.AuctionState
 import net.corda.core.node.StatesToRecord
+import net.corda.core.utilities.ProgressTracker
 import java.lang.IllegalArgumentException
 
 /**
@@ -21,6 +22,7 @@ import java.lang.IllegalArgumentException
 @InitiatingFlow
 @StartableByRPC
 class AuctionEndFlow(val auctionId: UniqueIdentifier) : FlowLogic<SignedTransaction>() {
+    override val progressTracker = ProgressTracker()
     @Suspendable
     override fun call(): SignedTransaction {
         val auctionStates = serviceHub.vaultService.queryBy(AuctionState::class.java)

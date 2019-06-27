@@ -12,6 +12,7 @@ import net.corda.auctionhouse.contract.AuctionItemContract.Companion.AUCTION_ITE
 import net.corda.auctionhouse.state.AuctionItemState
 import net.corda.auctionhouse.state.AuctionState
 import net.corda.core.node.StatesToRecord
+import net.corda.core.utilities.ProgressTracker
 import net.corda.finance.contracts.asset.PartyAndAmount
 import net.corda.finance.workflows.asset.CashUtils
 import java.lang.IllegalArgumentException
@@ -30,6 +31,7 @@ import java.lang.IllegalArgumentException
 @InitiatingFlow
 @SchedulableFlow
 class AuctionSettleFlow(private val stateRef: StateRef) : FlowLogic<SignedTransaction>() {
+    override val progressTracker = ProgressTracker()
     @Suspendable
     override fun call(): SignedTransaction {
 

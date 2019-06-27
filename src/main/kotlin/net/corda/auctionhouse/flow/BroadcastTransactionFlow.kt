@@ -5,6 +5,7 @@ import net.corda.core.flows.*
 import net.corda.core.identity.Party
 import net.corda.core.node.StatesToRecord
 import net.corda.core.transactions.SignedTransaction
+import net.corda.core.utilities.ProgressTracker
 
 /**
  * Broadcasts a transaction to a list of Parties.
@@ -14,7 +15,7 @@ class BroadcastTransactionFlow(
         private val stx: SignedTransaction,
         private val recipients: List<Party>
 ) : FlowLogic<Unit>() {
-
+    override val progressTracker = ProgressTracker()
     @Suspendable
     override fun call() {
         for (recipient in recipients) {

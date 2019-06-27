@@ -28,6 +28,7 @@ import java.util.*
 class AuctionListFlow(val itemId: UniqueIdentifier,
                       val price: Amount<Currency>,
                       val expiry: Instant) : FlowLogic<SignedTransaction>() {
+    override val progressTracker = ProgressTracker()
     @Suspendable
     override fun call(): SignedTransaction {
 
@@ -57,10 +58,6 @@ class AuctionListFlow(val itemId: UniqueIdentifier,
                     serviceHub.networkMapCache.allNodes.map { node -> node.legalIdentities.first() } - state.seller
             subFlow(BroadcastTransactionFlow(it, broadcastToParties))
         }
-    }
-
-    companion object {
-        fun tracker() = ProgressTracker()
     }
 }
 

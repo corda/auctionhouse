@@ -9,6 +9,7 @@ import net.corda.auctionhouse.contract.AuctionContract
 import net.corda.auctionhouse.contract.AuctionContract.Companion.AUCTION_CONTRACT_ID
 import net.corda.auctionhouse.state.AuctionState
 import net.corda.core.node.StatesToRecord
+import net.corda.core.utilities.ProgressTracker
 import net.corda.serialization.internal.byteArrayOutput
 import java.util.*
 
@@ -22,6 +23,7 @@ import java.util.*
 @InitiatingFlow
 @StartableByRPC
 class AuctionBidFlow(val auctionId: UniqueIdentifier, val amount: Amount<Currency>) : FlowLogic<SignedTransaction>() {
+    override val progressTracker = ProgressTracker()
     @Suspendable
     override fun call(): SignedTransaction {
         val auctionStates = serviceHub.vaultService.queryBy(AuctionState::class.java)

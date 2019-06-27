@@ -6,6 +6,7 @@ import net.corda.core.flows.FlowLogic
 import net.corda.core.flows.InitiatingFlow
 import net.corda.core.flows.StartableByRPC
 import net.corda.core.utilities.OpaqueBytes
+import net.corda.core.utilities.ProgressTracker
 import net.corda.finance.contracts.asset.Cash
 import net.corda.finance.flows.CashIssueFlow
 import java.util.*
@@ -17,6 +18,7 @@ import java.util.*
 @InitiatingFlow
 @StartableByRPC
 class SelfIssueCashFlow(val amount: Amount<Currency>) : FlowLogic<Cash.State>() {
+    override val progressTracker = ProgressTracker()
     @Suspendable
     override fun call(): Cash.State {
         /** Create the cash issue command. */
