@@ -26,7 +26,6 @@ import java.lang.IllegalArgumentException
  *     of it.
  * @param stateRef A state reference to the auction state. (see [AuctionState])
  * @return A message describing the outcome of the auction settlement.
- * TODO: What happens if contract verification fails?
  */
 @InitiatingFlow
 @SchedulableFlow
