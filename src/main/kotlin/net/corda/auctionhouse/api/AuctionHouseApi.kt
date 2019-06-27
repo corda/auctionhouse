@@ -153,10 +153,11 @@ class AuctionHouseApi(val rpcOps: CordaRPCOps) {
             // Start the AuctionListFlow. We block and wait for the flow to return.
             val result = rpcOps.startFlow(::AuctionListFlow, linearId,
                     Amount(amount.toLong() * 100, Currency.getInstance(currency)), Instant.parse(expiry)).returnValue.get()
+            val auctionId = result.tx.outputsOfType(AuctionState::class.java).single().linearId
             // Return the response.
             return Response
                     .status(Response.Status.CREATED)
-                    .entity("Auction id ${result.id} committed to the ledger.")
+                    .entity("Auction id $auctionId committed to the ledger.")
                     .build()
             // For the purposes of this demo app, we do not differentiate by exception type.
         } catch (e: Exception) {
@@ -193,6 +194,30 @@ class AuctionHouseApi(val rpcOps: CordaRPCOps) {
                     .build()
         }
     }
+
+    /**
+     * Remove an auction.
+     * @param id The unique id of the auction.
+     */
+    @GET
+    @Path("remove")
+    fun bidOnAuction(@QueryParam(value = "id") id: String): Response {
+        val linearId = UniqueIdentifier.fromString(id)
+        try {
+            rpcOps.startFlow(::AuctionEndFlow, linearId).returnValue.get()
+            return Response
+                    .status(Response.Status.OK)
+                    .entity("Auction $id removed from the ledger.")
+                    .build()
+        } catch (e: Exception) {
+            return Response
+                    .status(Response.Status.BAD_REQUEST)
+                    .entity(e.message)
+                    .build()
+        }
+    }
+
+
 
     /**
      * Helper end-point to issue some cash to ourselves.

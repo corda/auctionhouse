@@ -53,7 +53,7 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": "http://{{host}}:{{PartyAPort}}/api/auction/self-issue-item?description=<DESCRIPTION>",
+					"raw": "http://{{host}}:{{PartyAPort}}/api/auction/self-issue-item?description=Diamond ring",
 					"protocol": "http",
 					"host": [
 						"{{host}}"
@@ -67,7 +67,7 @@
 					"query": [
 						{
 							"key": "description",
-							"value": "<DESCRIPTION>",
+							"value": "Diamond ring",
 							"description": "The item description"
 						}
 					]
@@ -81,7 +81,39 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": ""
+					"raw": "http://{{host}}:{{PartyAPort}}/api/auction/list?item=2fb4dfe8-11e6-42e2-b944-deeb0ddd80d9&amount=4000&currency=GBP&expiry=2019-06-29T09:00:00Z",
+					"protocol": "http",
+					"host": [
+						"{{host}}"
+					],
+					"port": "{{PartyAPort}}",
+					"path": [
+						"api",
+						"auction",
+						"list"
+					],
+					"query": [
+						{
+							"key": "item",
+							"value": "2fb4dfe8-11e6-42e2-b944-deeb0ddd80d9",
+							"description": "The id of the item to list"
+						},
+						{
+							"key": "amount",
+							"value": "4000",
+							"description": "The starting amount"
+						},
+						{
+							"key": "currency",
+							"value": "GBP",
+							"description": "The currency of the price [GBP/USD]"
+						},
+						{
+							"key": "expiry",
+							"value": "2019-06-29T09:00:00Z",
+							"description": "The expiry time in UTC."
+						}
+					]
 				}
 			},
 			"response": []
@@ -92,7 +124,34 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": ""
+					"raw": "http://{{host}}:{{PartyBPort}}/api/auction/bid?id=5aba4c4f-1ed4-409a-b565-988d62e66d9f&amount=4500&currency=GBP",
+					"protocol": "http",
+					"host": [
+						"{{host}}"
+					],
+					"port": "{{PartyBPort}}",
+					"path": [
+						"api",
+						"auction",
+						"bid"
+					],
+					"query": [
+						{
+							"key": "id",
+							"value": "5aba4c4f-1ed4-409a-b565-988d62e66d9f",
+							"description": "The auction id"
+						},
+						{
+							"key": "amount",
+							"value": "4500",
+							"description": "The bid amount"
+						},
+						{
+							"key": "currency",
+							"value": "GBP",
+							"description": "The bid currency [GBP/USD]"
+						}
+					]
 				}
 			},
 			"response": []
@@ -103,7 +162,27 @@
 				"method": "GET",
 				"header": [],
 				"url": {
-					"raw": ""
+					"raw": "http://{{host}}:{{PartyBPort}}/api/auction/self-issue-cash?amount=4500&currency=GBP",
+					"protocol": "http",
+					"host": [
+						"{{host}}"
+					],
+					"port": "{{PartyBPort}}",
+					"path": [
+						"api",
+						"auction",
+						"self-issue-cash"
+					],
+					"query": [
+						{
+							"key": "amount",
+							"value": "4500"
+						},
+						{
+							"key": "currency",
+							"value": "GBP"
+						}
+					]
 				}
 			},
 			"response": []
@@ -124,6 +203,34 @@
 						"api",
 						"auction",
 						"cash"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Remove auction",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://{{host}}:{{PartyAPort}}/api/auction/remove?id=5aba4c4f-1ed4-409a-b565-988d62e66d9f",
+					"protocol": "http",
+					"host": [
+						"{{host}}"
+					],
+					"port": "{{PartyAPort}}",
+					"path": [
+						"api",
+						"auction",
+						"remove"
+					],
+					"query": [
+						{
+							"key": "id",
+							"value": "5aba4c4f-1ed4-409a-b565-988d62e66d9f",
+							"description": "The auction id"
+						}
 					]
 				}
 			},
