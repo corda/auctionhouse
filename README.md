@@ -57,6 +57,7 @@ again leaving all options as they are.
 * Tests:
    * `src/test/kotlin/net/corda/auctionhouse/contract/AuctionListTests.kt`
    * `src/test/kotlin/net/corda/auctionhouse/contract/AuctionBidTests.kt`
+   * `src/test/kotlin/net/corda/auctionhouse/contract/AuctionEndTests.kt`
    * `src/test/kotlin/net/corda/auctionhouse/contract/AuctionSettleTests.kt`
    * `src/test/kotlin/net/corda/auctionhouse/contract/AuctionItemIssueTests.kt`
    * `src/test/kotlin/net/corda/auctionhouse/contract/AuctionItemListTests.kt`
@@ -68,12 +69,14 @@ again leaving all options as they are.
 * Source:
    * `src/main/kotlin/net/corda/auctionhouse/flow/AuctionListFlow.kt`
    * `src/main/kotlin/net/corda/auctionhouse/flow/AuctionBidFlow.kt`
+   * `src/main/kotlin/net/corda/auctionhouse/flow/AuctionEndFlow.kt`
    * `src/main/kotlin/net/corda/auctionhouse/flow/AuctionSettleFlow.kt`
    * `src/main/kotlin/net/corda/auctionhouse/flow/AuctionItemSelfIssueFlow.kt`
 
 * Tests:
    * `src/test/kotlin/net/corda/auctionhouse/flow/AuctionListFlowTests.kt`
    * `src/test/kotlin/net/corda/auctionhouse/flow/AuctionBidFlowTests.kt`
+   * `src/test/kotlin/net/corda/auctionhouse/flow/AuctionEndFlowTests.kt`
    * `src/test/kotlin/net/corda/auctionhouse/flow/AuctionSettleFlowTests.kt`
    * `src/test/kotlin/net/corda/auctionhouse/flow/AuctionItemSelfIssueFlowTests.kt`
 
