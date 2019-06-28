@@ -25,6 +25,7 @@ import java.lang.IllegalArgumentException
  *     be transferred to the highest bidder and de-listed.
  *   - If the auction fails, no funds are transferred, the item is de-listed and the seller maintains ownership
  *     of it.
+ *   - If an exception is thrown, the auction cannot be settled and it must be ended by the seller.
  * @param stateRef A state reference to the auction state. (see [AuctionState])
  * @return A message describing the outcome of the auction settlement.
  */
