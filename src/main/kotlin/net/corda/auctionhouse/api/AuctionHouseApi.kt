@@ -10,14 +10,12 @@ import net.corda.core.messaging.CordaRPCOps
 import net.corda.core.messaging.startFlow
 import net.corda.core.messaging.vaultQueryBy
 import net.corda.core.node.NodeInfo
-import net.corda.core.utilities.loggerFor
 import net.corda.finance.contracts.asset.Cash
 import net.corda.finance.workflows.getCashBalances
 import net.corda.auctionhouse.state.AuctionItemState
 import net.corda.auctionhouse.state.AuctionState
 import org.bouncycastle.asn1.x500.X500Name
 import org.bouncycastle.asn1.x500.style.BCStyle
-import org.slf4j.Logger
 import java.time.Instant
 import java.util.Currency
 import javax.ws.rs.GET
@@ -36,7 +34,7 @@ import javax.ws.rs.core.Response
 class AuctionHouseApi(val rpcOps: CordaRPCOps) {
     private val me = rpcOps.nodeInfo().legalIdentities.first().name
 
-    fun X500Name.toDisplayString(): String = BCStyle.INSTANCE.toString(this)
+    private fun X500Name.toDisplayString(): String = BCStyle.INSTANCE.toString(this)
 
     /** Helpers for filtering the network map cache. */
     private fun isNotary(nodeInfo: NodeInfo) = rpcOps.notaryIdentities().any { nodeInfo.isLegalIdentity(it) }
@@ -53,8 +51,8 @@ class AuctionHouseApi(val rpcOps: CordaRPCOps) {
     fun whoami() = mapOf("me" to me.toString())
 
     /**
-     * Returns all parties registered with the [NetworkMapService]. These names can be used to look up identities
-     * using the [IdentityService].
+     * Returns all parties registered with the Network Map Service. These names can be used to look up identities
+     * using the Identity Service.
      */
     @GET
     @Path("peers")

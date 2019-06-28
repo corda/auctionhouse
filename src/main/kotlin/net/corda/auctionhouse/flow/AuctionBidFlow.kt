@@ -10,7 +10,6 @@ import net.corda.auctionhouse.contract.AuctionContract.Companion.AUCTION_CONTRAC
 import net.corda.auctionhouse.state.AuctionState
 import net.corda.core.node.StatesToRecord
 import net.corda.core.utilities.ProgressTracker
-import net.corda.serialization.internal.byteArrayOutput
 import java.util.*
 
 /**
