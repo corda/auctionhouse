@@ -30,7 +30,7 @@ again leaving all options as they are.
 
 
 ### Running the tests
-* Select `Unit tests` from the dropdown run configuration menu, and click the green play button.
+* Select `Unit tests` from the drop-down run configuration menu, and click the green play button.
 * Individual tests can be run by clicking the green arrow in the line number column next to each test.
 * When running flow tests you must add the following to your run / debug configuration in the VM options field. This enables us to use
 * Quasar - a library that provides high-performance, lightweight threads.
@@ -86,7 +86,7 @@ again leaving all options as they are.
 Navigate to the root project folder and run `./gradlew deployNodes`, followed by `./build/node/runnodes`
 
 ### IntelliJ
-With the project open, select `Node driver` from the dropdown run configuration menu, and click the green play button.
+With the project open, select `Node driver` from the drop-down run configuration menu, and click the green play button.
 
 ### Interacting with the CorDapp
 Once all the three nodes have started up (look for `Webserver started up in XXX sec` in the terminal or IntelliJ ),
@@ -101,7 +101,7 @@ A Postman collection `Auction House.postman_collection.json` and environment `Au
 is provided with example requests.
 
 ## Troubleshooting
-When running the flow tests, if you get a Quasar instrumention error then add:
+When running the flow tests, if you get a Quasar instrumentation error then add:
 
 ```-ea -javaagent:lib/quasar.jar```
 
